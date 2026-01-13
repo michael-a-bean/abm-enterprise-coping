@@ -224,7 +224,7 @@ Enterprise participation rate by wave:
 
 ---
 
-## Summary
+## Summary (runbook/20260113-pipeline-validation)
 
 | Step | Status | Notes |
 |------|--------|-------|
@@ -236,3 +236,111 @@ Enterprise participation rate by wave:
 | Ethiopia Baseline | PASS | 1500 records, 500 households, 3 waves |
 | Ethiopia Report | PASS | HTML generated |
 | LLM Stub Run | PASS | Constraint system verified |
+
+---
+
+# Threshold Robustness Validation Run
+
+**Date:** 2026-01-13
+**Branch:** release/20260113-threshold-robustness
+**Base Commit:** f746b17
+
+---
+
+## 8. Threshold Robustness Preflight
+
+### 8.1 Tests
+
+**Command:** `make test`
+
+**Result:** PASS (108/108 tests)
+
+```
+============================= 108 passed in 16.87s =============================
+```
+
+**New Tests Added:**
+- TestStalePartitionGuard: 7 tests for CLI stale partition detection
+
+### 8.2 Toy Simulation
+
+**Command:** `make run-toy`
+
+**Result:** PASS
+
+```
+Running toy simulation with seed=42
+Simulation complete. Outputs written to outputs/toy
+  - Outcomes: outputs/toy/household_outcomes.parquet (400 rows)
+  - Manifest: outputs/toy/manifest.json
+
+Enterprise participation rate by wave:
+  Wave 1: 57.0%
+  Wave 2: 74.0%
+  Wave 3: 75.0%
+  Wave 4: 76.0%
+```
+
+### 8.3 Tanzania Baseline (with --clean-output)
+
+**Command:** `make run-sim COUNTRY=tanzania CLEAN_OUTPUT=1`
+
+**Result:** PASS
+
+```
+Running simulation for tanzania - baseline
+Loaded derived targets from data/processed
+  Households: 500
+  Observations: 2000
+
+Simulation complete. Outputs written to outputs/tanzania/baseline
+  - Outcomes: 2000 rows
+  - Manifest: includes stayer_threshold parameter
+
+Classification distribution:
+  coper: 308 (15.4%)
+  none: 1256 (62.8%)
+  stayer: 436 (21.8%)
+```
+
+### 8.4 Report Rendering
+
+**Commands:**
+- `make render-report` (toy mode)
+- `make render-report-country country=tanzania`
+
+**Result:** BOTH PASS
+
+- R warnings (14) present but reports render successfully
+- Sensitivity analysis section renders with threshold comparison
+- Quarto check-quarto target working as expected
+
+---
+
+## 9. Changes Validated
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Threshold documentation | COMPLETE | THRESHOLD_JUSTIFICATION.md |
+| Sensitivity analysis (R) | COMPLETE | run_threshold_sensitivity() |
+| Threshold in config | COMPLETE | stayer_threshold: 0.5 |
+| Threshold in manifest | COMPLETE | Parameters include threshold |
+| Stale partition guard | COMPLETE | 7 tests, CLI flags work |
+| Quarto check | COMPLETE | clear error message |
+| Report sensitivity section | COMPLETE | Table + plot render |
+
+---
+
+## Summary (release/20260113-threshold-robustness)
+
+| Step | Status | Notes |
+|------|--------|-------|
+| Preflight Tests | PASS | 108/108 (+7 new) |
+| Toy Pipeline | PASS | 400 records |
+| Tanzania Baseline | PASS | 2000 records, --clean-output tested |
+| Toy Report | PASS | With sensitivity section |
+| Tanzania Report | PASS | With sensitivity section |
+| Stale Partition Guard | PASS | Tested via unit tests + integration |
+| Quarto Check | PASS | Quarto 1.8.26 detected |
+
+**Final Status:** READY FOR MERGE
