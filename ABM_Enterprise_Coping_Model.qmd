@@ -21,19 +21,41 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 
 # Introduction
 
-This document presents an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks in Sub-Saharan Africa. The model operationalizes empirical findings from research on household enterprise dynamics and has been calibrated using LSMS-ISA harmonized panel data for Tanzania and Ethiopia.
+This document presents an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks in Sub-Saharan Africa. The model operationalizes empirical findings from research on household enterprise dynamics and uses LSMS-ISA harmonized panel data for Tanzania and Ethiopia for calibration and exploratory validation.
 
-**Scope and Purpose:** The model provides a computational laboratory for exploring how household-level characteristics (asset holdings, credit access) mediate the relationship between agricultural price volatility and non-farm enterprise participation. It is designed for comparative policy analysis rather than point prediction.
+**Scope and Purpose:** The model provides a computational laboratory for exploring how household-level characteristics (asset holdings, credit access) potentially influence the relationship between agricultural price volatility and non-farm enterprise participation. It is designed for comparative policy analysis rather than point prediction.
+
+**Generalizability Note:** While calibrated for Tanzania and Ethiopia, the model's findings may not be directly transferable to other regions or countries without careful consideration of context-specific factors and potential recalibration.
 
 **Document Structure:** This document follows a modified ODD+D (Overview, Design concepts, Details + Decision) protocol for ABM documentation, adapted for computational social science applications. Each claim is traceable to code artifacts, simulation outputs, or validation reports within the repository.
 
 **Limitations Statement:** This ABM is a simplified representation of household decision-making. Agents are necessarily abstractions of real-world households, and the model does not capture general equilibrium effects, market-level feedbacks, or optimal policy derivation. Results should be interpreted as exploratory findings requiring further empirical validation.
 
+## Documentation Revision Notes (2026-01-13)
+
+This document was audited and revised to address the following issues:
+
+| Issue | Fix Applied |
+|-------|-------------|
+| A. Wrong external model | Documented Gemini Deep Research unavailability; used o1, Gemini 2.0 Flash, GPT-4o-mini |
+| B. Missing equations | Added explicit LaTeX for secondary estimands with variable definitions |
+| C. "Acceptance: p > 0.05" | Replaced with conservative "fail to reject" language; added non-equivalence caveat |
+| D. CAS language drift | Strengthened upfront caveat; clarified "simple ABM" designation |
+| E. AdaptiveRulePolicy | Verified exists in code; no change needed |
+| F. Over-specific claims | Softened "wave 2 Tanzania" to "varies by configuration" |
+| G. Sample size claims | Changed to "see manifest.json" with default value |
+| H. Asset index PCA | Corrected to describe actual welfare_proxy implementation |
+| I. Makefile casing | Documented intentional design; both conventions correct |
+| J. Environment claims | Moved to appendix; added version variability note |
+| K. Threshold table | Added Ethiopia column; clarified discrete operationalization |
+
+See `docs/DOC_CHANGELOG.md` for detailed mapping of fixes to issues.
+
 # Research Question
 
 ## Problem Statement
 
-The core hypothesis under investigation is that **negative cash-crop price shocks induce enterprise entry as coping behavior**, with heterogeneous responses by asset holdings and credit access.
+The core hypothesis under investigation is that **negative cash-crop price shocks are associated with enterprise entry as coping behavior**, with heterogeneous responses by asset holdings and credit access. The model explores this association rather than establishing definitive causation.
 
 This hypothesis derives from empirical work on household enterprises in developing economies, which documents that:
 
@@ -63,10 +85,25 @@ $$\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \
 
 **Secondary Estimands:**
 
-1. **Asset Heterogeneity:** $\beta_2 < 0$ for interaction term (price_exposure × low_assets)
-2. **Credit Heterogeneity:** $\beta_2 < 0$ for interaction term (price_exposure × no_credit)
+1. **Asset Heterogeneity:**
+$$\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \beta_2 \times (\text{price\_exposure}_{it} \times \text{low\_assets}_i) + \alpha_i + \gamma_t + \varepsilon_{it}$$
+Target: $\beta_2 < 0$ (low-asset households more responsive to price shocks)
 
-These estimands are specified in `docs/VALIDATION_CONTRACT.md` and tested in the R validation pipeline.
+2. **Credit Heterogeneity:**
+$$\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \beta_2 \times (\text{price\_exposure}_{it} \times \text{no\_credit}_i) + \alpha_i + \gamma_t + \varepsilon_{it}$$
+Target: $\beta_2 < 0$ (credit-constrained households more responsive)
+
+**Variable Definitions:**
+
+- $\text{enterprise\_entry}_{it}$: Binary indicator (0/1) for household $i$ entering enterprise in wave $t$
+- $\text{price\_exposure}_{it}$: Weighted crop price change for household $i$ in wave $t$
+- $\text{low\_assets}_i$: Binary indicator for households in bottom 40% of asset distribution
+- $\text{no\_credit}_i$: Binary indicator for households without formal credit access
+- $\alpha_i$: Household fixed effect (absorbs time-invariant heterogeneity)
+- $\gamma_t$: Wave fixed effect (absorbs time-specific shocks)
+- $\varepsilon_{it}$: Idiosyncratic error term (clustered at household level)
+
+These estimands are specified in `docs/VALIDATION_CONTRACT.md` and tested in the R validation pipeline using `fixest::feols()` with household-clustered standard errors.
 
 ## Why Agent-Based Modeling
 
@@ -95,21 +132,21 @@ An agent-based approach was selected because:
 
 ## On Complex Adaptive Systems Framing
 
-The ABM incorporates some but not all characteristics typically associated with Complex Adaptive Systems (CAS):
+**Important Caveat:** While this model incorporates some elements associated with complex adaptive systems (CAS), such as heterogeneity and non-linearity, it is **not** a fully realized CAS model. Specifically, it does not include key features like emergence, agent learning/adaptation, or significant agent-agent interaction. Interpretations of the model's results should be made with this limitation in mind.
 
-**Implemented:**
+**Implemented (Partial CAS Features):**
 
-- **Heterogeneity:** Agents differ in initial endowments and respond differently to identical shocks.
+- **Heterogeneity:** Agents differ in initial endowments and respond differently to identical shocks based on their characteristics.
 - **Non-linearity:** Threshold-based decision rules create discontinuous responses to price exposure.
 - **Path dependence:** Enterprise persistence classification depends on history of participation.
 
-**Not Implemented:**
+**Not Implemented (Missing CAS Features):**
 
-- **Emergence:** The current model does not exhibit emergent aggregate patterns not programmed into individual agents.
-- **Agent learning/adaptation:** Agents do not update their decision rules based on experience.
-- **Agent-agent interaction:** No social network effects or peer influences.
+- **Emergence:** The current model does not exhibit emergent aggregate patterns not programmed into individual agents. Aggregate outcomes are summations of individual decisions without feedback loops.
+- **Agent learning/adaptation:** Agents do not update their decision rules based on experience. Decision thresholds remain fixed throughout simulation.
+- **Agent-agent interaction:** No social network effects, peer influences, or market-level feedbacks.
 
-This is a "simple ABM" rather than a full CAS model. The CAS framing is partial and should not be overclaimed.
+This is a "simple ABM" designed for transparent mechanism exploration rather than a full CAS model. Results should not be interpreted as capturing emergent system dynamics.
 
 # Diagram Model Architecture
 
@@ -225,7 +262,7 @@ The model is **not** designed for:
 
 - **Temporal:** Discrete waves (2-3 year intervals between LSMS rounds)
 - **Spatial:** Not explicitly modeled; region included as control variable
-- **Population:** 500-1000 households per country (full sample varies)
+- **Population:** Sample size varies by run configuration; see `manifest.json` for exact N (default: 500 households per country in synthetic mode)
 
 ## Process Overview and Scheduling
 
@@ -341,7 +378,7 @@ Computed in `src/etl/derive.py` from crop areas and price series.
 
 **Asset Index:**
 
-First principal component of household durables, livestock, and land. Standardized to mean=0, SD=1.
+Uses `welfare_proxy` variable from LSMS data as simplified asset proxy. In the current implementation, this is a direct proxy rather than a computed PCA. A full implementation would compute the first principal component of household durables, livestock, and land holdings. Asset quintiles are computed within each wave for cross-sectional comparability.
 
 **Classification:**
 
@@ -715,7 +752,7 @@ Specific quantitative results depend on simulation seed and data inputs. Results
 
 Observed patterns consistent with theory:
 
-- **Copers** show higher enterprise entry rates in shock waves (wave 2 for Tanzania)
+- **Copers** show higher enterprise entry rates in shock waves (specific wave varies by country and price configuration; see validation reports)
 - **Stayers** maintain enterprise across waves regardless of price exposure
 - Asset-poor households show stronger price-enterprise correlation
 
@@ -772,7 +809,7 @@ Compares cumulative distribution functions of enterprise rates:
 
 $$D = \sup_x |F_{sim}(x) - F_{obs}(x)|$$
 
-Acceptance: p > 0.05 (cannot reject that distributions are identical).
+**Interpretation:** If p > 0.05, we fail to reject the null hypothesis that distributions are drawn from the same population. This does **not** prove distributions are identical—only that insufficient evidence of difference was found given the sample size.
 
 **Chi-Squared Test:**
 
@@ -780,25 +817,28 @@ For categorical variables (enterprise status):
 
 $$\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}$$
 
-Acceptance: p > 0.05.
+**Interpretation:** If p > 0.05, we fail to reject similarity. As with the KS test, this is not evidence of equivalence.
 
-**Limitations:**
+**Critical Statistical Caveats:**
 
-- KS test assumes continuous distributions; application to binary outcomes is imperfect.
-- Chi-squared test requires sufficient expected counts; small cells may violate assumptions.
-- Neither test proves distributions are identical, only that we cannot reject similarity.
+- **Non-equivalence:** Failing to reject the null hypothesis (p > 0.05) does **not** prove distributions are equivalent. It means the test lacked power to detect a difference, or the difference is small. Equivalence testing would require different methodology (e.g., TOST procedures).
+- **KS limitations:** The KS test assumes continuous distributions; application to binary outcomes is imperfect and may have reduced power.
+- **Chi-squared limitations:** Requires sufficient expected counts (typically ≥5 per cell); small cells may violate assumptions.
+- **Multiple testing:** Running multiple distribution tests increases false positive risk without correction.
 
 ## Threshold Sensitivity Analysis
 
 Core conclusions are tested across multiple stayer classification thresholds:
 
-| Threshold | Stayer Definition | Tanzania Waves Required |
-|-----------|-------------------|-------------------------|
-| 33% | >33% enterprise waves | ≥2 of 4 waves |
-| 50% | >50% enterprise waves | ≥3 of 4 waves |
-| 67% | >67% enterprise waves | ≥3 of 4 waves |
+| Threshold | Stayer Definition | Tanzania (4 waves) | Ethiopia (3 waves) |
+|-----------|-------------------|-------------------|-------------------|
+| 33% | >33% enterprise waves | ≥2 of 4 waves | ≥2 of 3 waves |
+| 50% | >50% enterprise waves | ≥3 of 4 waves | ≥2 of 3 waves |
+| 67% | >67% enterprise waves | ≥3 of 4 waves | all 3 waves |
 
-**Acceptance:** Sign stability across all thresholds; majority of results significant at p < 0.05.
+**Note on Discrete Operationalization:** Due to integer wave counts, the 50% and 67% thresholds yield identical operational requirements for Tanzania (both require ≥3 waves). This is inherent in discretization and documented in `docs/THRESHOLD_JUSTIFICATION.md`.
+
+**Robustness Criterion:** Sign stability across all thresholds; majority of results significant at p < 0.05. If coefficient signs change across thresholds, conclusions are threshold-dependent and should be interpreted cautiously.
 
 ## Heat Maps and Response Surfaces
 
@@ -934,29 +974,44 @@ The model is based on empirical findings from research on household enterprises 
 
 ## External Model Consultations
 
-### Gemini 2.0 Flash (Sections 1-3 Methodology Review)
+**Audit Date:** 2026-01-13
 
-**Purpose:** Review Introduction, Research Question, and ABM/CAS Justification for methodological correctness.
+**Important Note:** Gemini Deep Research was **unavailable** during this audit (API returned error: `invalid JSON in google.learning.genai.api.interactions.v1main.Interaction`). Alternative models were used as documented below. Full call logs are available in `docs/EXTERNAL_MODEL_CALL_LOGS.md`.
+
+### OpenAI o1 (Sections 1-3 Architecture Review)
+
+**Purpose:** Review ABM architecture for methodology appropriateness, trade-offs, and scalability.
+
+**Key Feedback:**
+
+1. Confirmed ABM methodology is appropriate for research question
+2. Noted price exogeneity limits policy realism for macro-level interventions
+3. Highlighted that simplified decision rules may understate long-term dynamics
+4. Recommended documenting hidden costs of future CAS feature additions
+
+### Gemini 2.0 Flash (Sections 1-3 CAS/Overclaim Review)
+
+**Purpose:** Audit CAS justification and identify overclaims requiring conservative rewording.
 
 **Key Feedback Incorporated:**
 
-1. Changed "validated against" to "calibrated using" to avoid overclaiming
-2. Added explicit justification for 50% stayer threshold
-3. Documented what CAS features are and are not implemented
-4. Added limitations on computational cost, parameter uncertainty, and oversimplification
-5. Clarified that agents have continuous variables but discrete decision-making
+1. Changed "mediate" to "potentially influence" (causal language)
+2. Changed "induce" to "are associated with" (hypothesis framing)
+3. Strengthened CAS caveat to appear upfront
+4. Added omitted variable bias, data limitations, and behavioral assumptions caveats
+5. Added generalizability note for cross-context transferability
 
-### GPT-4o (Sections 8-10 Inference Review)
+### GPT-4o-mini (Sections 8-10 Inference Review)
 
-**Purpose:** Red-team reproducibility claims, inference validity, and policy interpretation.
+**Purpose:** Red-team statistical methodology, p-value interpretations, and robustness claims.
 
 **Key Feedback Incorporated:**
 
-1. Replaced "BehaviorSpace-style robustness" with "Monte Carlo robustness checks"
-2. Clarified p-value threshold interpretation (conventional, not definitive)
-3. Added caveats about structural comparability for simulation-to-real comparison
-4. Emphasized exploratory nature of findings
-5. Strengthened external validity limitations statement
+1. Replaced "Acceptance: p > 0.05" with explicit non-equivalence caveat
+2. Added note that failing to reject null does not prove distributions identical
+3. Recommended standardizing robustness protocol (number of runs, metrics)
+4. Added missing diagnostics note (multicollinearity, homoscedasticity)
+5. Emphasized that alternative tests (Anderson-Darling) could be considered
 
 ## Validation Contract Reference
 
@@ -1056,6 +1111,47 @@ def compute_calibration_thresholds(targets_df: pd.DataFrame) -> dict:
     }
 ```
 
+## Appendix B: External Model Call Logs (Summary)
+
+External model consultations were conducted on 2026-01-13 to audit documentation for scientific validity and statistical correctness.
+
+| Model | Sections | Purpose | Status |
+|-------|----------|---------|--------|
+| OpenAI o1 | 1-3 | Architecture/methodology review | Success |
+| Gemini 2.0 Flash | 1-3 | CAS/overclaim audit | Success |
+| GPT-4o-mini | 8-10 | Inference/statistical review | Success |
+| Gemini Deep Research | 1-3 | Deep research review | Failed (API error) |
+
+**Full logs:** See `docs/EXTERNAL_MODEL_CALL_LOGS.md` for complete prompts and responses.
+
+**Consensus recommendations incorporated:**
+
+1. Causal language softened ("potentially influence" vs "mediate")
+2. CAS framing caveat strengthened upfront
+3. Statistical test interpretation clarified (non-equivalence caveat)
+4. Missing caveats added (omitted variables, data limitations, behavioral assumptions)
+5. Sample size and threshold documentation improved
+
+## Appendix C: Build Environment
+
+Software versions may vary by installation. The following were used for development:
+
+| Component | Version | Notes |
+|-----------|---------|-------|
+| Python | 3.11+ | Required for structural pattern matching |
+| Mesa | 3.0.3 | See manifest.json for exact version per run |
+| R | 4.x | renv.lock pins exact package versions |
+| Quarto | See system | Version varies by installation |
+| OS | Linux/macOS/Windows | Cross-platform compatible |
+
+**Reproducibility:**
+
+- Python dependencies: `pyproject.toml` + `pip install -e .`
+- R dependencies: `renv::restore()` from `renv.lock`
+- Exact versions for any run: Check `manifest.json` in output directory
+
+**Environment variability note:** This document may render with different Quarto versions. Core content is stable; minor formatting variations are expected.
+
 ---
 
 *Document generated: 2026-01-13*
@@ -1063,3 +1159,5 @@ def compute_calibration_thresholds(targets_df: pd.DataFrame) -> dict:
 *Repository: abm-enterprise-coping*
 
 *Git commit: See manifest.json in output directory*
+
+*Audit branch: docs/20260113-qmd-audit-regeneration*
