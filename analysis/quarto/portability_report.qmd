@@ -1,0 +1,562 @@
+---
+title: "ABM Portability Report: Cross-Country Validation"
+author: "ABM Enterprise Coping Model"
+date: today
+params:
+  data_dir: "../../data/processed"
+  tz_output_dir: "../../outputs/tanzania/baseline"
+  eth_output_dir: "../../outputs/ethiopia/baseline"
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## Overview
+
+This report tests the **portability** of the ABM Enterprise Coping Model by comparing
+validation results across Tanzania and Ethiopia.
+
+According to the [Validation Contract](../../docs/VALIDATION_CONTRACT.md), portability
+validation requires:
+
+> Model calibrated on Tanzania, tested on Ethiopia: Sign preservation on all main effects
+
+```{r setup}
+#| message: false
+#| warning: false
+
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(fixest)
+library(gt)
+library(scales)
+library(patchwork)
+
+# Source helper functions
+source("../R/read_simulation.R")
+source("../R/validation_helpers.R")
+
+# Set ggplot theme
+theme_set(theme_minimal(base_size = 12))
+
+# Status formatting
+format_status <- function(pass) {
+  if (is.na(pass)) return("N/A")
+  if (pass) "PASS" else "FAIL"
+}
+```
+
+```{r load-data}
+#| message: false
+
+# Load Tanzania data
+tz_targets <- tryCatch({
+  read_derived_targets(params$data_dir, "tanzania")
+}, error = function(e) {
+  message("Tanzania targets not found: ", e$message)
+  NULL
+})
+
+# Load Ethiopia data
+eth_targets <- tryCatch({
+  read_derived_targets(params$data_dir, "ethiopia")
+}, error = function(e) {
+  message("Ethiopia targets not found: ", e$message)
+  NULL
+})
+
+# Try to load simulation outputs if available
+tz_sim <- tryCatch({
+  read_simulation(params$tz_output_dir)
+}, error = function(e) {
+  NULL
+})
+
+eth_sim <- tryCatch({
+  read_simulation(params$eth_output_dir)
+}, error = function(e) {
+  NULL
+})
+
+# Check what data is available
+has_tz_targets <- !is.null(tz_targets)
+has_eth_targets <- !is.null(eth_targets)
+has_tz_sim <- !is.null(tz_sim)
+has_eth_sim <- !is.null(eth_sim)
+```
+
+## 1. Data Availability
+
+```{r data-availability}
+#| label: tbl-data-availability
+#| tbl-cap: "Data Availability Summary"
+
+availability_df <- data.frame(
+  Country = c("Tanzania", "Ethiopia"),
+  `Empirical Targets` = c(
+    if (has_tz_targets) "Available" else "Missing",
+    if (has_eth_targets) "Available" else "Missing"
+  ),
+  `Simulation Output` = c(
+    if (has_tz_sim) "Available" else "Missing",
+    if (has_eth_sim) "Available" else "Missing"
+  ),
+  check.names = FALSE
+)
+
+availability_df |>
+  gt::gt() |>
+  gt::tab_header(
+    title = "Data Availability",
+    subtitle = "Required inputs for portability validation"
+  )
+```
+
+## 2. Empirical Data Comparison
+
+### 2.1 Sample Statistics
+
+```{r sample-stats}
+#| label: tbl-sample-stats
+#| tbl-cap: "Sample Statistics by Country"
+
+if (has_tz_targets && has_eth_targets) {
+  # Tanzania stats
+  tz_stats <- data.frame(
+    Country = "Tanzania",
+    `N Households` = length(unique(tz_targets$household_id)),
+    `N Observations` = nrow(tz_targets),
+    `N Waves` = length(unique(tz_targets$wave)),
+    `Enterprise Rate` = mean(tz_targets$enterprise_indicator, na.rm = TRUE),
+    `Mean Price Exposure` = mean(tz_targets$price_exposure, na.rm = TRUE),
+    check.names = FALSE
+  )
+
+  # Ethiopia stats
+  eth_stats <- data.frame(
+    Country = "Ethiopia",
+    `N Households` = length(unique(eth_targets$household_id)),
+    `N Observations` = nrow(eth_targets),
+    `N Waves` = length(unique(eth_targets$wave)),
+    `Enterprise Rate` = mean(eth_targets$enterprise_indicator, na.rm = TRUE),
+    `Mean Price Exposure` = mean(eth_targets$price_exposure, na.rm = TRUE),
+    check.names = FALSE
+  )
+
+  bind_rows(tz_stats, eth_stats) |>
+    gt::gt() |>
+    gt::fmt_number(columns = c(`Enterprise Rate`, `Mean Price Exposure`), decimals = 3) |>
+    gt::tab_header(
+      title = "Sample Statistics",
+      subtitle = "Empirical data comparison"
+    )
+} else {
+  cat("Requires both Tanzania and Ethiopia empirical data.\n")
+}
+```
+
+### 2.2 Enterprise Rate Distribution
+
+```{r plot-enterprise-rates}
+#| label: fig-enterprise-rates
+#| fig-cap: "Enterprise Rates by Country and Wave"
+#| fig-height: 5
+
+if (has_tz_targets && has_eth_targets) {
+  tz_by_wave <- tz_targets |>
+    group_by(wave) |>
+    summarize(
+      enterprise_rate = mean(enterprise_indicator, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    ) |>
+    mutate(country = "Tanzania")
+
+  eth_by_wave <- eth_targets |>
+    group_by(wave) |>
+    summarize(
+      enterprise_rate = mean(enterprise_indicator, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    ) |>
+    mutate(country = "Ethiopia")
+
+  wave_data <- bind_rows(tz_by_wave, eth_by_wave)
+
+  ggplot(wave_data, aes(x = factor(wave), y = enterprise_rate, fill = country)) +
+    geom_col(position = position_dodge(width = 0.8), alpha = 0.8, width = 0.7) +
+    geom_text(aes(label = sprintf("%.1f%%", enterprise_rate * 100)),
+              position = position_dodge(width = 0.8), vjust = -0.5, size = 3) +
+    scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.15))) +
+    scale_fill_manual(values = c("Tanzania" = "steelblue", "Ethiopia" = "darkgreen")) +
+    labs(
+      title = "Enterprise Rate by Wave",
+      x = "Wave",
+      y = "Enterprise Rate",
+      fill = "Country"
+    ) +
+    theme(legend.position = "bottom")
+}
+```
+
+### 2.3 Price Exposure Distribution
+
+```{r plot-price-distributions}
+#| label: fig-price-distributions
+#| fig-cap: "Price Exposure Distributions by Country"
+#| fig-height: 4
+
+if (has_tz_targets && has_eth_targets) {
+  price_data <- bind_rows(
+    tz_targets |> select(price_exposure) |> mutate(country = "Tanzania"),
+    eth_targets |> select(price_exposure) |> mutate(country = "Ethiopia")
+  )
+
+  ggplot(price_data, aes(x = price_exposure, fill = country)) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = c("Tanzania" = "steelblue", "Ethiopia" = "darkgreen")) +
+    labs(
+      title = "Price Exposure Distribution",
+      x = "Price Exposure",
+      y = "Density",
+      fill = "Country"
+    ) +
+    theme(legend.position = "bottom")
+}
+```
+
+## 3. Regression Analysis on Empirical Data
+
+### 3.1 Primary Estimand
+
+Running the primary fixed effects regression on empirical data from each country:
+
+$$\text{enterprise}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+```{r regression-primary}
+#| label: tbl-regression-primary
+#| tbl-cap: "Primary Estimand Comparison"
+
+if (has_tz_targets && has_eth_targets) {
+  # Run regressions on empirical data
+  tz_primary <- run_fe_regression(tz_targets, return_results = TRUE)
+  eth_primary <- run_fe_regression(eth_targets, return_results = TRUE)
+
+  primary_df <- data.frame(
+    Country = c("Tanzania", "Ethiopia"),
+    Coefficient = c(tz_primary$coefficient, eth_primary$coefficient),
+    `Std. Error` = c(tz_primary$std_error, eth_primary$std_error),
+    `t-statistic` = c(tz_primary$t_statistic, eth_primary$t_statistic),
+    `P-value` = c(tz_primary$p_value, eth_primary$p_value),
+    `Sign Correct` = c(tz_primary$sign_match, eth_primary$sign_match),
+    `Pass` = c(tz_primary$pass, eth_primary$pass),
+    check.names = FALSE
+  )
+
+  primary_df |>
+    gt::gt() |>
+    gt::fmt_number(columns = c(Coefficient, `Std. Error`, `t-statistic`), decimals = 4) |>
+    gt::fmt_scientific(columns = `P-value`, decimals = 2) |>
+    gt::tab_header(
+      title = "Primary Estimand: Price Exposure Effect",
+      subtitle = "Target: beta_1 < 0 (negative price shocks increase enterprise)"
+    )
+} else {
+  cat("Requires both Tanzania and Ethiopia empirical data.\n")
+}
+```
+
+### 3.2 Asset Interaction
+
+```{r regression-assets}
+#| label: tbl-regression-assets
+#| tbl-cap: "Asset Interaction Comparison"
+
+if (has_tz_targets && has_eth_targets) {
+  tz_assets <- run_asset_interaction_regression(tz_targets, return_results = TRUE)
+  eth_assets <- run_asset_interaction_regression(eth_targets, return_results = TRUE)
+
+  assets_df <- data.frame(
+    Country = c("Tanzania", "Ethiopia"),
+    `Interaction Coefficient` = c(tz_assets$coefficient, eth_assets$coefficient),
+    `Std. Error` = c(tz_assets$std_error, eth_assets$std_error),
+    `P-value` = c(tz_assets$p_value, eth_assets$p_value),
+    `Sign Correct` = c(tz_assets$sign_match, eth_assets$sign_match),
+    `Pass` = c(tz_assets$pass, eth_assets$pass),
+    check.names = FALSE
+  )
+
+  assets_df |>
+    gt::gt() |>
+    gt::fmt_number(columns = c(`Interaction Coefficient`, `Std. Error`), decimals = 4) |>
+    gt::fmt_scientific(columns = `P-value`, decimals = 2) |>
+    gt::tab_header(
+      title = "Asset Interaction Effect",
+      subtitle = "Target: beta_2 < 0 (low-asset households more responsive)"
+    )
+}
+```
+
+### 3.3 Credit Interaction
+
+```{r regression-credit}
+#| label: tbl-regression-credit
+#| tbl-cap: "Credit Interaction Comparison"
+
+if (has_tz_targets && has_eth_targets) {
+  tz_credit <- run_credit_interaction_regression(tz_targets, return_results = TRUE)
+  eth_credit <- run_credit_interaction_regression(eth_targets, return_results = TRUE)
+
+  credit_df <- data.frame(
+    Country = c("Tanzania", "Ethiopia"),
+    `Interaction Coefficient` = c(tz_credit$coefficient, eth_credit$coefficient),
+    `Std. Error` = c(tz_credit$std_error, eth_credit$std_error),
+    `P-value` = c(tz_credit$p_value, eth_credit$p_value),
+    `Sign Correct` = c(tz_credit$sign_match, eth_credit$sign_match),
+    `Pass` = c(tz_credit$pass, eth_credit$pass),
+    check.names = FALSE
+  )
+
+  credit_df |>
+    gt::gt() |>
+    gt::fmt_number(columns = c(`Interaction Coefficient`, `Std. Error`), decimals = 4) |>
+    gt::fmt_scientific(columns = `P-value`, decimals = 2) |>
+    gt::tab_header(
+      title = "Credit Interaction Effect",
+      subtitle = "Target: beta_2 < 0 (credit-constrained households more responsive)"
+    )
+}
+```
+
+## 4. Coefficient Comparison
+
+```{r coefficient-plot}
+#| label: fig-coefficient-comparison
+#| fig-cap: "Coefficient Comparison Across Countries"
+#| fig-height: 5
+
+if (has_tz_targets && has_eth_targets) {
+  coef_data <- data.frame(
+    coefficient = c("Primary (price_exposure)",
+                   "Asset Interaction",
+                   "Credit Interaction"),
+    Tanzania = c(tz_primary$coefficient,
+                tz_assets$coefficient,
+                tz_credit$coefficient),
+    Ethiopia = c(eth_primary$coefficient,
+                eth_assets$coefficient,
+                eth_credit$coefficient),
+    Tanzania_SE = c(tz_primary$std_error,
+                   tz_assets$std_error,
+                   tz_credit$std_error),
+    Ethiopia_SE = c(eth_primary$std_error,
+                   eth_assets$std_error,
+                   eth_credit$std_error)
+  )
+
+  coef_long <- coef_data |>
+    pivot_longer(
+      cols = c(Tanzania, Ethiopia),
+      names_to = "country",
+      values_to = "estimate"
+    ) |>
+    left_join(
+      coef_data |>
+        pivot_longer(
+          cols = c(Tanzania_SE, Ethiopia_SE),
+          names_to = "country_se",
+          values_to = "se"
+        ) |>
+        mutate(country = gsub("_SE", "", country_se)) |>
+        select(coefficient, country, se),
+      by = c("coefficient", "country")
+    )
+
+  ggplot(coef_long, aes(x = coefficient, y = estimate, color = country)) +
+    geom_point(position = position_dodge(width = 0.5), size = 3) +
+    geom_errorbar(aes(ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se),
+                  position = position_dodge(width = 0.5), width = 0.2) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+    scale_color_manual(values = c("Tanzania" = "steelblue", "Ethiopia" = "darkgreen")) +
+    labs(
+      title = "Coefficient Estimates with 95% Confidence Intervals",
+      subtitle = "All coefficients expected to be negative",
+      x = "",
+      y = "Coefficient Estimate",
+      color = "Country"
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 15, hjust = 1),
+      legend.position = "bottom"
+    ) +
+    coord_flip()
+}
+```
+
+## 5. Classification Comparison
+
+```{r classification-comparison}
+#| label: tbl-classification
+#| tbl-cap: "Stayer/Coper Classification by Country"
+
+if (has_tz_targets && has_eth_targets) {
+  tz_class <- get_classification_summary(tz_targets) |>
+    mutate(country = "Tanzania")
+
+  eth_class <- get_classification_summary(eth_targets) |>
+    mutate(country = "Ethiopia")
+
+  class_data <- bind_rows(tz_class, eth_class)
+
+  class_data |>
+    pivot_wider(
+      names_from = country,
+      values_from = c(n, proportion)
+    ) |>
+    gt::gt() |>
+    gt::fmt_percent(columns = starts_with("proportion"), decimals = 1) |>
+    gt::tab_header(
+      title = "Household Classification",
+      subtitle = "Stayer/Coper/None proportions by country"
+    )
+}
+```
+
+```{r plot-classification}
+#| label: fig-classification
+#| fig-cap: "Classification Distribution by Country"
+#| fig-height: 4
+
+if (has_tz_targets && has_eth_targets) {
+  ggplot(class_data, aes(x = classification, y = proportion, fill = country)) +
+    geom_col(position = position_dodge(width = 0.8), alpha = 0.8, width = 0.7) +
+    geom_text(aes(label = sprintf("%.1f%%", proportion * 100)),
+              position = position_dodge(width = 0.8), vjust = -0.3, size = 3) +
+    scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.15))) +
+    scale_fill_manual(values = c("Tanzania" = "steelblue", "Ethiopia" = "darkgreen")) +
+    labs(
+      title = "Classification Distribution by Country",
+      x = "Classification",
+      y = "Proportion",
+      fill = "Country"
+    ) +
+    theme(legend.position = "bottom")
+}
+```
+
+## 6. Portability Summary
+
+```{r portability-summary}
+#| label: tbl-portability-summary
+#| tbl-cap: "Portability Validation Summary"
+
+if (has_tz_targets && has_eth_targets) {
+  # Check sign preservation
+  sign_preserved_primary <- (tz_primary$coefficient < 0) == (eth_primary$coefficient < 0)
+  sign_preserved_assets <- (tz_assets$coefficient < 0) == (eth_assets$coefficient < 0)
+  sign_preserved_credit <- (tz_credit$coefficient < 0) == (eth_credit$coefficient < 0)
+
+  portability_df <- data.frame(
+    Test = c("Primary Effect Sign",
+             "Asset Interaction Sign",
+             "Credit Interaction Sign",
+             "Overall Portability"),
+    `Tanzania Sign` = c(
+      if (tz_primary$coefficient < 0) "Negative" else "Positive",
+      if (tz_assets$coefficient < 0) "Negative" else "Positive",
+      if (tz_credit$coefficient < 0) "Negative" else "Positive",
+      ""
+    ),
+    `Ethiopia Sign` = c(
+      if (eth_primary$coefficient < 0) "Negative" else "Positive",
+      if (eth_assets$coefficient < 0) "Negative" else "Positive",
+      if (eth_credit$coefficient < 0) "Negative" else "Positive",
+      ""
+    ),
+    `Sign Preserved` = c(
+      format_status(sign_preserved_primary),
+      format_status(sign_preserved_assets),
+      format_status(sign_preserved_credit),
+      format_status(sign_preserved_primary && sign_preserved_assets && sign_preserved_credit)
+    ),
+    check.names = FALSE
+  )
+
+  portability_df |>
+    gt::gt() |>
+    gt::tab_header(
+      title = "Portability Validation",
+      subtitle = "Model trained on Tanzania, tested on Ethiopia"
+    ) |>
+    gt::tab_style(
+      style = list(gt::cell_fill(color = "#d4edda")),
+      locations = gt::cells_body(columns = `Sign Preserved`, rows = `Sign Preserved` == "PASS")
+    ) |>
+    gt::tab_style(
+      style = list(gt::cell_fill(color = "#f8d7da")),
+      locations = gt::cells_body(columns = `Sign Preserved`, rows = `Sign Preserved` == "FAIL")
+    ) |>
+    gt::tab_style(
+      style = list(gt::cell_text(weight = "bold")),
+      locations = gt::cells_body(rows = Test == "Overall Portability")
+    )
+}
+```
+
+## 7. Conclusions
+
+```{r conclusions}
+#| results: hold
+
+if (has_tz_targets && has_eth_targets) {
+  cat("=== PORTABILITY VALIDATION SUMMARY ===\n\n")
+
+  # Sign preservation
+  sign_preserved_primary <- (tz_primary$coefficient < 0) == (eth_primary$coefficient < 0)
+  sign_preserved_assets <- (tz_assets$coefficient < 0) == (eth_assets$coefficient < 0)
+  sign_preserved_credit <- (tz_credit$coefficient < 0) == (eth_credit$coefficient < 0)
+  all_signs_preserved <- sign_preserved_primary && sign_preserved_assets && sign_preserved_credit
+
+  cat("Sign Preservation (Required):\n")
+  cat(sprintf("  - Primary Effect: %s\n", format_status(sign_preserved_primary)))
+  cat(sprintf("  - Asset Interaction: %s\n", format_status(sign_preserved_assets)))
+  cat(sprintf("  - Credit Interaction: %s\n", format_status(sign_preserved_credit)))
+
+  cat("\nCoefficient Magnitudes:\n")
+  cat(sprintf("  - Primary: TZ=%.4f, ETH=%.4f (ratio=%.2f)\n",
+              tz_primary$coefficient, eth_primary$coefficient,
+              abs(eth_primary$coefficient / tz_primary$coefficient)))
+  cat(sprintf("  - Assets: TZ=%.4f, ETH=%.4f (ratio=%.2f)\n",
+              tz_assets$coefficient, eth_assets$coefficient,
+              abs(eth_assets$coefficient / tz_assets$coefficient)))
+  cat(sprintf("  - Credit: TZ=%.4f, ETH=%.4f (ratio=%.2f)\n",
+              tz_credit$coefficient, eth_credit$coefficient,
+              abs(eth_credit$coefficient / tz_credit$coefficient)))
+
+  cat(sprintf("\n=== OVERALL PORTABILITY STATUS: %s ===\n",
+              if (all_signs_preserved) "PASS" else "FAIL"))
+
+  if (all_signs_preserved) {
+    cat("\nThe model shows good portability: all coefficient signs are preserved\n")
+    cat("across countries, indicating the core mechanisms generalize.\n")
+  } else {
+    cat("\nPortability concerns: some coefficient signs differ between countries.\n")
+    cat("Review country-specific assumptions and mechanisms.\n")
+  }
+} else {
+  cat("Portability validation requires empirical data from both Tanzania and Ethiopia.\n")
+}
+```
+
+---
+
+*Report generated on `r Sys.time()`*

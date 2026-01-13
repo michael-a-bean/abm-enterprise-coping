@@ -1,22 +1,26 @@
 # Analysis Makefile
 # ABM Enterprise Coping Model - R/Quarto Validation
 
-.PHONY: setup render render-country clean help
+.PHONY: setup render render-validation render-portability render-country render-report clean help
 
 # Default target
 help:
 	@echo "ABM Enterprise Coping - Analysis Makefile"
 	@echo ""
 	@echo "Targets:"
-	@echo "  setup          - Restore renv dependencies"
-	@echo "  render         - Render validation report (toy mode)"
-	@echo "  render-country - Render report for specific country (use country=NAME)"
-	@echo "  clean          - Remove rendered outputs"
+	@echo "  setup              - Restore renv dependencies"
+	@echo "  render             - Render validation report (toy mode)"
+	@echo "  render-validation  - Render validation report for country (use country=NAME)"
+	@echo "  render-report      - Alias for render-validation"
+	@echo "  render-portability - Render cross-country portability report"
+	@echo "  test               - Run R tests"
+	@echo "  clean              - Remove rendered outputs"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make setup"
 	@echo "  make render"
-	@echo "  make render-country country=tanzania"
+	@echo "  make render-report country=tanzania"
+	@echo "  make render-portability"
 
 # Restore renv environment
 setup:
@@ -32,20 +36,39 @@ render:
 
 # Render validation report for specific country
 # Usage: make render-country country=tanzania
-render-country:
+render-country: render-validation
+
+# Alias for render-validation (as specified in acceptance criteria)
+# Usage: make render-report country=tanzania
+render-report: render-validation
+
+# Render validation report for specific country with scenario
+# Usage: make render-validation country=tanzania scenario=baseline
+render-validation:
 ifndef country
-	$(error country is not set. Usage: make render-country country=NAME)
+	$(error country is not set. Usage: make render-validation country=NAME [scenario=SCENARIO])
 endif
 	@echo "Rendering validation report for $(country)..."
 	cd quarto && quarto render validation_report.qmd \
-		-P output_dir:../../outputs/$(country) \
+		-P output_dir:../../outputs/$(country)/$(or $(scenario),baseline) \
+		-P data_dir:../../data/processed \
 		-P country:$(country)
-	@echo "Output: quarto/_output/validation_report.html"
+	@echo "Output: quarto/validation_report.html"
+
+# Render cross-country portability report
+render-portability:
+	@echo "Rendering portability report..."
+	cd quarto && quarto render portability_report.qmd
+	@echo "Output: quarto/portability_report.html"
 
 # Clean rendered outputs
 clean:
 	@echo "Cleaning rendered outputs..."
 	rm -rf quarto/_output
+	rm -f quarto/validation_report.html
+	rm -f quarto/portability_report.html
+	rm -rf quarto/validation_report_files
+	rm -rf quarto/portability_report_files
 	@echo "Done."
 
 # Install renv itself (for fresh setups)

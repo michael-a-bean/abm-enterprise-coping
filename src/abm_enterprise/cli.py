@@ -99,13 +99,13 @@ def run_sim(
         "none",
         "--policy",
         "-p",
-        help="Policy type (none, credit_access, price_support, asset_transfer)",
+        help="Policy type (none, credit_access, price_support, asset_transfer, calibrated)",
     ),
     data_dir: Path | None = typer.Option(
         None,
         "--data-dir",
         "-d",
-        help="Directory containing real data (uses synthetic if not provided)",
+        help="Directory containing processed data (loads derived targets)",
     ),
     output_dir: Path = typer.Option(
         Path("outputs"),
@@ -113,12 +113,22 @@ def run_sim(
         "-o",
         help="Output directory",
     ),
+    calibrate: bool = typer.Option(
+        False,
+        "--calibrate",
+        "-c",
+        help="Auto-calibrate policy thresholds from derived data",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ) -> None:
-    """Run simulation with real or synthetic data.
+    """Run simulation with derived targets or synthetic data.
+
+    When --data-dir is provided, loads household_targets.parquet from
+    data/processed/{country}/derived/ for validation-aligned simulation.
 
     Example:
         abm run-sim tanzania --scenario baseline --seed 42
+        abm run-sim tanzania --data-dir data/processed --calibrate
         abm run-sim ethiopia --policy credit_access --data-dir data/processed
     """
     log_level = "DEBUG" if verbose else "INFO"
@@ -130,21 +140,32 @@ def run_sim(
     # Initialize RNG
     set_seed(seed)
 
-    # Parse policy type
-    try:
-        policy_type = PolicyType(policy)
-    except ValueError:
-        typer.echo(f"Invalid policy type: {policy}", err=True)
-        typer.echo(f"Valid options: {[p.value for p in PolicyType]}", err=True)
-        raise typer.Exit(code=1)
+    # Load data
+    household_data = None
+    calibration_thresholds = None
 
-    # Load or generate data
     if data_dir is not None:
-        from abm_enterprise.model import load_real_data
+        from abm_enterprise.model import (
+            compute_calibration_thresholds,
+            load_derived_targets,
+        )
 
         try:
-            household_data = load_real_data(country, data_dir)
-            typer.echo(f"Loaded real data from {data_dir}")
+            household_data = load_derived_targets(country, data_dir)
+            # Infer num_waves from data
+            data_waves = sorted(household_data["wave"].unique())
+            num_waves = len(data_waves)
+            typer.echo(f"Loaded derived targets from {data_dir}")
+            typer.echo(f"  Households: {household_data['household_id'].nunique()}")
+            typer.echo(f"  Observations: {len(household_data)}")
+
+            # Compute calibration thresholds if requested
+            if calibrate:
+                calibration_thresholds = compute_calibration_thresholds(household_data)
+                typer.echo("Calibrated thresholds:")
+                for k, v in calibration_thresholds.items():
+                    typer.echo(f"  {k}: {v:.4f}")
+
         except FileNotFoundError as e:
             typer.echo(f"Error: {e}", err=True)
             raise typer.Exit(code=1)
@@ -158,6 +179,32 @@ def run_sim(
         )
         typer.echo("Using synthetic data (no --data-dir provided)")
 
+    # Parse policy type and create policy
+    from abm_enterprise.policies.rule import CalibratedRulePolicy
+
+    model_policy = None
+    policy_type = PolicyType.NONE
+
+    if policy == "calibrated" or calibrate:
+        # Use calibrated policy
+        if calibration_thresholds is not None:
+            model_policy = CalibratedRulePolicy(
+                country=country,
+                thresholds=calibration_thresholds,
+            )
+            typer.echo("Using CalibratedRulePolicy with data-driven thresholds")
+        else:
+            model_policy = CalibratedRulePolicy.from_config(country)
+            typer.echo("Using CalibratedRulePolicy with config thresholds")
+    else:
+        try:
+            policy_type = PolicyType(policy)
+        except ValueError:
+            typer.echo(f"Invalid policy type: {policy}", err=True)
+            valid_options = [p.value for p in PolicyType] + ["calibrated"]
+            typer.echo(f"Valid options: {valid_options}", err=True)
+            raise typer.Exit(code=1)
+
     # Create config
     config = SimulationConfig(
         country=country,
@@ -168,7 +215,11 @@ def run_sim(
     )
 
     # Run model
-    model = EnterpriseCopingModel(config=config, household_data=household_data)
+    model = EnterpriseCopingModel(
+        config=config,
+        household_data=household_data,
+        policy=model_policy,
+    )
     model.run()
 
     # Write outputs
@@ -177,6 +228,23 @@ def run_sim(
     typer.echo(f"\nSimulation complete. Outputs written to {output_subdir}")
     typer.echo(f"  - Outcomes: {output_paths['outcomes']}")
     typer.echo(f"  - Manifest: {output_paths['manifest']}")
+
+    # Summary statistics for validation contract
+    outcomes = model.get_outcomes_dataframe()
+
+    # Enterprise rate by wave
+    enterprise_rate = outcomes.groupby("wave")["enterprise_status"].mean()
+    typer.echo("\nEnterprise participation rate by wave:")
+    for wave, rate in enterprise_rate.items():
+        typer.echo(f"  Wave {wave}: {rate:.1%}")
+
+    # Classification distribution
+    if "classification" in outcomes.columns:
+        class_counts = outcomes.groupby("classification").size()
+        typer.echo("\nClassification distribution:")
+        for cls, count in class_counts.items():
+            pct = count / len(outcomes) * 100
+            typer.echo(f"  {cls}: {count} ({pct:.1f}%)")
 
 
 @app.command()

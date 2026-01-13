@@ -15,8 +15,9 @@ help:
 	@echo "  format             - Format code with ruff"
 	@echo "  type-check         - Run mypy type checking"
 	@echo "  run                - Run simulation (use config=PATH)"
-	@echo "  run-toy            - Run toy simulation"
-	@echo "  run-sim            - Run simulation (use COUNTRY=name)"
+	@echo "  run-toy            - Run toy simulation with synthetic data"
+	@echo "  run-sim            - Run simulation with derived targets (use COUNTRY=name)"
+	@echo "  run-sim-synthetic  - Run simulation with synthetic data only"
 	@echo "  validate           - Validate output schema"
 	@echo "  ingest-data        - Download and process LSMS data"
 	@echo "  derive-targets     - Build derived target tables"
@@ -33,6 +34,9 @@ help:
 	@echo "  make setup"
 	@echo "  make test"
 	@echo "  make run-toy"
+	@echo "  make run-sim COUNTRY=tanzania"
+	@echo "  make run-sim COUNTRY=tanzania CALIBRATE=1"
+	@echo "  make run-sim-synthetic COUNTRY=ethiopia"
 	@echo "  make ingest-data country=tanzania"
 	@echo "  make derive-targets country=tanzania"
 	@echo "  make render-report"
@@ -80,11 +84,22 @@ run-toy:
 
 # Run simulation with country and scenario
 # Usage: make run-sim COUNTRY=tanzania SCENARIO=baseline SEED=42
+# Usage: make run-sim COUNTRY=tanzania CALIBRATE=1 (for calibrated policy)
 COUNTRY ?= tanzania
 SCENARIO ?= baseline
 SEED ?= 42
+CALIBRATE ?= 0
 
+# Run simulation with derived data (default for non-toy runs)
 run-sim:
+ifeq ($(CALIBRATE),1)
+	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --data-dir data/processed --calibrate --output-dir outputs
+else
+	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --data-dir data/processed --output-dir outputs
+endif
+
+# Run simulation with synthetic data only (no derived targets)
+run-sim-synthetic:
 	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --output-dir outputs
 
 # Validate output schema

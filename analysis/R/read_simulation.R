@@ -1,8 +1,13 @@
 #' Read Simulation Outputs
 #'
 #' Functions for reading and validating ABM simulation outputs from Parquet format.
+#' Also includes functions for reading derived targets (empirical data).
 #'
 #' @author ABM Enterprise Coping Model
+
+# Default base directories
+DEFAULT_OUTPUT_BASE <- "../../outputs"
+DEFAULT_DATA_BASE <- "../../data/processed"
 
 #' Read simulation outputs from Parquet
 #'
@@ -164,4 +169,186 @@ list_simulations <- function(outputs_base = "outputs") {
   })]
 
   valid_dirs
+}
+
+#' Read derived targets (empirical data)
+#'
+#' Reads the derived household targets from the processed data directory.
+#' These contain empirical data for validation comparison.
+#'
+#' @param data_dir Base path to processed data (e.g., "data/processed")
+#' @param country Country name (e.g., "tanzania", "ethiopia")
+#' @return Data frame with derived household targets
+#' @export
+#' @examples
+#' \dontrun{
+#' targets <- read_derived_targets("data/processed", "tanzania")
+#' }
+read_derived_targets <- function(data_dir, country) {
+  # Construct path to household targets
+  targets_path <- file.path(data_dir, country, "derived", "household_targets.parquet")
+
+  if (!file.exists(targets_path)) {
+    stop(sprintf("Derived targets file not found: %s", targets_path))
+  }
+
+  # Read parquet file
+  targets <- arrow::read_parquet(targets_path)
+
+  # Standardize column names for validation
+  # The derived targets use enterprise_indicator, we want enterprise_status for consistency
+  if ("enterprise_indicator" %in% names(targets) && !"enterprise_status" %in% names(targets)) {
+    targets$enterprise_status <- targets$enterprise_indicator
+  }
+
+  # Ensure assets column exists (may be called asset_index in derived)
+  if ("asset_index" %in% names(targets) && !"assets" %in% names(targets)) {
+    targets$assets <- targets$asset_index
+  }
+
+  targets
+}
+
+#' Load both simulation and derived targets for validation
+#'
+#' Convenience function to load both simulation outputs and empirical targets
+#' for a given country and scenario.
+#'
+#' @param output_dir Path to simulation output directory
+#' @param data_dir Base path to processed data
+#' @param country Country name
+#' @return List with simulation (outcomes, manifest) and targets
+#' @export
+#' @examples
+#' \dontrun{
+#' data <- load_validation_data(
+#'   "outputs/tanzania/baseline",
+#'   "data/processed",
+#'   "tanzania"
+#' )
+#' }
+load_validation_data <- function(output_dir, data_dir, country) {
+  # Read simulation outputs
+  sim <- read_simulation(output_dir)
+
+  # Read derived targets
+  targets <- tryCatch({
+    read_derived_targets(data_dir, country)
+  }, error = function(e) {
+    warning(sprintf("Could not load derived targets: %s", e$message))
+    NULL
+  })
+
+  list(
+    simulation = sim,
+    targets = targets,
+    country = country
+  )
+}
+
+#' Read price exposure data
+#'
+#' Reads the derived price exposure data for a country.
+#'
+#' @param data_dir Base path to processed data
+#' @param country Country name
+#' @return Data frame with price exposure by household and wave
+#' @export
+read_price_exposure <- function(data_dir, country) {
+  price_path <- file.path(data_dir, country, "derived", "price_exposure.parquet")
+
+  if (!file.exists(price_path)) {
+    stop(sprintf("Price exposure file not found: %s", price_path))
+  }
+
+  arrow::read_parquet(price_path)
+}
+
+#' Read enterprise targets
+#'
+#' Reads the derived enterprise rate targets for a country.
+#'
+#' @param data_dir Base path to processed data
+#' @param country Country name
+#' @return Data frame with enterprise rate targets by wave
+#' @export
+read_enterprise_targets <- function(data_dir, country) {
+  ent_path <- file.path(data_dir, country, "derived", "enterprise_targets.parquet")
+
+  if (!file.exists(ent_path)) {
+    stop(sprintf("Enterprise targets file not found: %s", ent_path))
+  }
+
+  arrow::read_parquet(ent_path)
+}
+
+#' Read asset targets
+#'
+#' Reads the derived asset distribution targets for a country.
+#'
+#' @param data_dir Base path to processed data
+#' @param country Country name
+#' @return Data frame with asset distribution targets
+#' @export
+read_asset_targets <- function(data_dir, country) {
+  asset_path <- file.path(data_dir, country, "derived", "asset_targets.parquet")
+
+  if (!file.exists(asset_path)) {
+    stop(sprintf("Asset targets file not found: %s", asset_path))
+  }
+
+  arrow::read_parquet(asset_path)
+}
+
+#' List available countries with derived data
+#'
+#' Scans the processed data directory for countries with derived targets.
+#'
+#' @param data_dir Base path to processed data
+#' @return Character vector of country names
+#' @export
+list_countries <- function(data_dir) {
+  if (!dir.exists(data_dir)) {
+    return(character(0))
+  }
+
+  # List subdirectories
+  dirs <- list.dirs(data_dir, full.names = FALSE, recursive = FALSE)
+
+  # Filter to those with derived/household_targets.parquet
+
+  valid_dirs <- dirs[sapply(dirs, function(d) {
+    targets_exists <- file.exists(
+      file.path(data_dir, d, "derived", "household_targets.parquet")
+    )
+    targets_exists
+  })]
+
+  valid_dirs
+}
+
+#' Validate derived targets schema
+#'
+#' Validates that the derived targets data frame has required columns.
+#'
+#' @param df Data frame to validate
+#' @return TRUE if valid; throws error otherwise
+#' @export
+validate_derived_schema <- function(df) {
+  required_cols <- c(
+    "household_id",
+    "wave",
+    "enterprise_indicator",
+    "price_exposure"
+  )
+
+  missing_cols <- setdiff(required_cols, names(df))
+  if (length(missing_cols) > 0) {
+    stop(sprintf(
+      "Missing required columns in derived targets: %s",
+      paste(missing_cols, collapse = ", ")
+    ))
+  }
+
+  TRUE
 }

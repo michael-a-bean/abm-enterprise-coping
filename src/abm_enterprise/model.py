@@ -12,6 +12,7 @@ from typing import Any
 
 import mesa
 import pandas as pd
+import polars as pl
 
 from abm_enterprise.agents.household import HouseholdAgent
 from abm_enterprise.data.schemas import PolicyType, SimulationConfig
@@ -271,3 +272,96 @@ def load_real_data(country: str, data_dir: Path | str) -> pd.DataFrame:
         raise FileNotFoundError(f"Data file not found: {data_file}")
 
     return pd.read_parquet(data_file)
+
+
+def load_derived_targets(country: str, data_dir: Path | str) -> pd.DataFrame:
+    """Load derived target data from Phase 2 parquet files.
+
+    Loads the household_targets.parquet file which contains:
+    - enterprise_indicator, enterprise_persistence, classification
+    - asset_index, asset_quintile, credit_access
+    - price_exposure, welfare_proxy
+
+    Maps columns to ABM-expected names:
+    - enterprise_indicator -> enterprise_status
+    - asset_index -> assets_index (for consistency with synthetic data)
+
+    Args:
+        country: Country code (tanzania or ethiopia).
+        data_dir: Directory containing processed data (e.g., data/processed).
+
+    Returns:
+        DataFrame with household panel data ready for ABM initialization.
+
+    Raises:
+        FileNotFoundError: If derived targets file doesn't exist.
+    """
+    data_dir = Path(data_dir)
+    targets_file = data_dir / country / "derived" / "household_targets.parquet"
+
+    if not targets_file.exists():
+        raise FileNotFoundError(
+            f"Derived targets not found: {targets_file}\n"
+            f"Run 'abm derive-targets --country {country}' first."
+        )
+
+    # Load with polars for efficiency, convert to pandas
+    df_pl = pl.read_parquet(targets_file)
+
+    # Rename columns to match ABM expected schema
+    df_pl = df_pl.rename({
+        "enterprise_indicator": "enterprise_status",
+        "asset_index": "assets_index",
+    })
+
+    # Add synthetic-data-style columns that may be missing
+    if "crop_count" not in df_pl.columns:
+        df_pl = df_pl.with_columns(pl.lit(1).alias("crop_count"))
+    if "land_area_ha" not in df_pl.columns:
+        df_pl = df_pl.with_columns(pl.lit(1.0).alias("land_area_ha"))
+
+    logger.info(
+        "Loaded derived targets",
+        country=country,
+        num_households=df_pl["household_id"].n_unique(),
+        num_observations=len(df_pl),
+        waves=sorted(df_pl["wave"].unique().to_list()),
+    )
+
+    return df_pl.to_pandas()
+
+
+def compute_calibration_thresholds(
+    targets_df: pd.DataFrame,
+) -> dict[str, float]:
+    """Compute calibrated thresholds from derived targets.
+
+    Calculates thresholds based on actual data distributions:
+    - price_threshold: Median of negative price exposures
+    - asset_threshold: Median asset index
+    - exit_asset_threshold: 10th percentile of asset index
+
+    Args:
+        targets_df: DataFrame with derived target data.
+
+    Returns:
+        Dictionary with calibrated thresholds.
+    """
+    # Price threshold: use median of negative price exposures
+    negative_prices = targets_df[targets_df["price_exposure"] < 0]["price_exposure"]
+    if len(negative_prices) > 0:
+        price_threshold = float(negative_prices.median())
+    else:
+        price_threshold = -0.1  # Default
+
+    # Asset threshold: median asset index
+    asset_threshold = float(targets_df["assets_index"].median())
+
+    # Exit threshold: 10th percentile (very low assets)
+    exit_asset_threshold = float(targets_df["assets_index"].quantile(0.10))
+
+    return {
+        "price_threshold": price_threshold,
+        "asset_threshold": asset_threshold,
+        "exit_asset_threshold": exit_asset_threshold,
+    }
