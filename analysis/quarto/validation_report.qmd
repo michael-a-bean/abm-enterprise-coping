@@ -512,7 +512,86 @@ if (!is.null(class_comparison)) {
 }
 ```
 
-## 7. Summary Table
+## 7. Threshold Sensitivity Analysis
+
+Testing robustness of conclusions across alternative stayer/coper thresholds.
+See `docs/THRESHOLD_JUSTIFICATION.md` for rationale.
+
+```{r sensitivity-analysis}
+#| label: tbl-sensitivity
+#| tbl-cap: "Primary Estimand Across Classification Thresholds"
+
+# Run sensitivity analysis across thresholds
+sensitivity_results <- run_threshold_sensitivity(outcomes, thresholds = c(0.33, 0.50, 0.67))
+
+# Display results table
+sensitivity_results |>
+  dplyr::mutate(
+    threshold_label = sprintf("%.0f%%", threshold * 100),
+    coefficient = sprintf("%.4f", beta_price_exposure),
+    std_error = sprintf("%.4f", se_price_exposure),
+    p_value_fmt = sprintf("%.4f", p_value),
+    sign_status = ifelse(sign_negative, "Negative", "Positive"),
+    sig_status = ifelse(significant_05, "p < 0.05", "p >= 0.05")
+  ) |>
+  dplyr::select(
+    Threshold = threshold_label,
+    Stayers = n_stayers,
+    Copers = n_copers,
+    `Beta (price_exposure)` = coefficient,
+    `Std. Error` = std_error,
+    `P-value` = p_value_fmt,
+    Sign = sign_status,
+    Significance = sig_status
+  ) |>
+  gt::gt() |>
+  gt::tab_header(
+    title = "Threshold Sensitivity Analysis",
+    subtitle = "Primary estimand (enterprise ~ price_exposure) across classification thresholds"
+  ) |>
+  gt::tab_footnote(
+    footnote = "Robust conclusions require consistent negative sign across thresholds.",
+    locations = gt::cells_column_labels(columns = Sign)
+  )
+```
+
+```{r sensitivity-assessment}
+#| results: hold
+
+# Assess stability
+stability <- assess_threshold_stability(sensitivity_results)
+
+cat("\n--- Threshold Sensitivity Assessment ---\n")
+cat(sprintf("Sign stability: %s\n", if (stability$sign_stable) "STABLE (all negative)" else "UNSTABLE"))
+cat(sprintf("Significance: %s\n", if (stability$majority_significant) "Majority significant (p < 0.05)" else "Variable significance"))
+cat(sprintf("Coefficient range: [%.4f, %.4f]\n", stability$coefficient_range[1], stability$coefficient_range[2]))
+cat(sprintf("Coefficient CV: %.2f%%\n", stability$coefficient_cv * 100))
+cat(sprintf("\nOverall: %s\n", stability$interpretation))
+```
+
+```{r sensitivity-plot}
+#| label: fig-sensitivity
+#| fig-cap: "Coefficient Estimates Across Thresholds"
+
+ggplot(sensitivity_results, aes(x = factor(threshold), y = beta_price_exposure)) +
+  geom_point(size = 4, color = "steelblue") +
+  geom_errorbar(
+    aes(ymin = beta_price_exposure - 1.96 * se_price_exposure,
+        ymax = beta_price_exposure + 1.96 * se_price_exposure),
+    width = 0.2, color = "steelblue"
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  scale_x_discrete(labels = c("0.33" = "33%", "0.5" = "50%", "0.67" = "67%")) +
+  labs(
+    title = "Price Exposure Coefficient by Classification Threshold",
+    subtitle = "Error bars show 95% confidence intervals",
+    x = "Stayer Threshold",
+    y = expression(beta[price_exposure])
+  ) +
+  theme(axis.text.x = element_text(size = 12))
+```
+
+## 8. Summary Table
 
 ```{r summary-table}
 #| label: tbl-summary
@@ -621,6 +700,7 @@ cat("Validation Results:\n")
 cat(sprintf("  - Primary Estimand (beta_1 < 0): %s\n", format_status(fe_results$pass)))
 cat(sprintf("  - Asset Interaction (beta_2 < 0): %s\n", format_status(asset_results$pass)))
 cat(sprintf("  - Credit Interaction: %s\n", format_status(credit_results$pass)))
+cat(sprintf("  - Threshold Sensitivity: %s\n", if (stability$stable) "ROBUST" else "CHECK RESULTS"))
 
 if (dist_results$mode == "validation") {
   cat(sprintf("  - Distribution Match: %s\n", format_status(dist_results$pass)))
@@ -631,8 +711,8 @@ if (!is.null(class_comparison)) {
   cat(sprintf("  - Coper Proportion: %s\n", format_status(class_comparison$coper_within_10pp)))
 }
 
-# Overall pass/fail
-all_pass <- fe_results$pass && asset_results$pass && credit_results$pass
+# Overall pass/fail (includes sensitivity check)
+all_pass <- fe_results$pass && asset_results$pass && credit_results$pass && stability$stable
 if (dist_results$mode == "validation") {
   all_pass <- all_pass && dist_results$pass
 }

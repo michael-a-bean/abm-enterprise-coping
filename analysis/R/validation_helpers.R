@@ -559,13 +559,14 @@ compare_distributions_full <- function(sim_df, obs_df = NULL) {
 #' Classify households as stayers or copers
 #'
 #' Based on the validation contract definition:
-#' - Stayer: Operates enterprise in >50% of observed waves
-#' - Coper: Operates enterprise in <=50% of observed waves (intermittent)
+#' - Stayer: Operates enterprise in >threshold of observed waves
+#' - Coper: Operates enterprise in >0% and <=threshold of observed waves (intermittent)
 #'
 #' @param df Data frame with household panel data
+#' @param stayer_threshold Persistence threshold for stayer classification (default: 0.5)
 #' @return Data frame with classification column added
 #' @export
-classify_stayers_copers <- function(df) {
+classify_stayers_copers <- function(df, stayer_threshold = 0.5) {
   df <- dplyr::as_tibble(df)
 
   # Handle column name variations for enterprise
@@ -585,7 +586,7 @@ classify_stayers_copers <- function(df) {
     dplyr::mutate(
       classification = dplyr::case_when(
         enterprise_rate == 0 ~ "none",
-        enterprise_rate > 0.5 ~ "stayer",
+        enterprise_rate > stayer_threshold ~ "stayer",
         TRUE ~ "coper"
       )
     )
@@ -893,4 +894,174 @@ print_validation_summary <- function(validation_results) {
   }
 
   cat("\n")
+}
+
+#' Run threshold sensitivity analysis
+#'
+#' Runs the primary FE regression with different stayer/coper classification
+#' thresholds to assess robustness of findings. See docs/THRESHOLD_JUSTIFICATION.md.
+#'
+#' @param df Data frame with household panel data
+#' @param thresholds Vector of threshold values to test (default: c(0.33, 0.50, 0.67))
+#' @return Data frame with regression results for each threshold
+#' @export
+run_threshold_sensitivity <- function(df, thresholds = c(0.33, 0.50, 0.67)) {
+  df <- as.data.frame(df)
+
+  # Handle column name variations
+  if (!"enterprise_status" %in% names(df) && "enterprise_entry" %in% names(df)) {
+    df$enterprise_status <- df$enterprise_entry
+  }
+  if (!"enterprise_status" %in% names(df) && "enterprise_indicator" %in% names(df)) {
+    df$enterprise_status <- df$enterprise_indicator
+  }
+
+  # Convert enterprise_status to numeric if needed
+  if (is.logical(df$enterprise_status)) {
+    df$enterprise_status <- as.numeric(df$enterprise_status)
+  }
+
+  # For each threshold, classify and run regression
+  results <- lapply(thresholds, function(thresh) {
+    # Classify households at this threshold
+    classified <- classify_stayers_copers(df, stayer_threshold = thresh)
+
+    # Get classification counts
+    class_counts <- classified |>
+      dplyr::distinct(household_id, classification) |>
+      dplyr::count(classification)
+
+    n_stayers <- class_counts$n[class_counts$classification == "stayer"]
+    n_copers <- class_counts$n[class_counts$classification == "coper"]
+    n_none <- class_counts$n[class_counts$classification == "none"]
+
+    if (length(n_stayers) == 0) n_stayers <- 0
+    if (length(n_copers) == 0) n_copers <- 0
+    if (length(n_none) == 0) n_none <- 0
+
+    # Run primary FE regression
+    fe_results <- tryCatch({
+      run_fe_regression(classified, return_results = TRUE)
+    }, error = function(e) {
+      list(coefficient = NA, std_error = NA, p_value = NA, pass = FALSE)
+    })
+
+    # Return row of results
+    data.frame(
+      threshold = thresh,
+      n_stayers = n_stayers,
+      n_copers = n_copers,
+      n_none = n_none,
+      beta_price_exposure = fe_results$coefficient,
+      se_price_exposure = fe_results$std_error,
+      p_value = fe_results$p_value,
+      sign_negative = !is.na(fe_results$coefficient) && fe_results$coefficient < 0,
+      significant_05 = !is.na(fe_results$p_value) && fe_results$p_value < 0.05,
+      pass = isTRUE(fe_results$pass)
+    )
+  })
+
+  do.call(rbind, results)
+}
+
+#' Run full threshold sensitivity with interactions
+#'
+#' Runs both primary and interaction regressions across thresholds.
+#'
+#' @param df Data frame with household panel data
+#' @param thresholds Vector of threshold values to test
+#' @return List with primary and interaction results
+#' @export
+run_full_threshold_sensitivity <- function(df, thresholds = c(0.33, 0.50, 0.67)) {
+  df <- as.data.frame(df)
+
+  # Handle column name variations
+  if (!"enterprise_status" %in% names(df) && "enterprise_entry" %in% names(df)) {
+    df$enterprise_status <- df$enterprise_entry
+  }
+  if (!"enterprise_status" %in% names(df) && "enterprise_indicator" %in% names(df)) {
+    df$enterprise_status <- df$enterprise_indicator
+  }
+
+  if (is.logical(df$enterprise_status)) {
+    df$enterprise_status <- as.numeric(df$enterprise_status)
+  }
+
+  results <- lapply(thresholds, function(thresh) {
+    classified <- classify_stayers_copers(df, stayer_threshold = thresh)
+
+    # Classification counts
+    class_counts <- classified |>
+      dplyr::distinct(household_id, classification) |>
+      dplyr::count(classification)
+
+    # Primary regression
+    fe_primary <- tryCatch({
+      run_fe_regression(classified, return_results = TRUE)
+    }, error = function(e) {
+      list(coefficient = NA, std_error = NA, p_value = NA, pass = FALSE)
+    })
+
+    # Asset interaction
+    fe_asset <- tryCatch({
+      run_asset_interaction_regression(classified, return_results = TRUE)
+    }, error = function(e) {
+      list(coefficient = NA, std_error = NA, p_value = NA, pass = FALSE)
+    })
+
+    # Credit interaction
+    fe_credit <- tryCatch({
+      run_credit_interaction_regression(classified, return_results = TRUE)
+    }, error = function(e) {
+      list(coefficient = NA, std_error = NA, p_value = NA, pass = FALSE)
+    })
+
+    list(
+      threshold = thresh,
+      classification = class_counts,
+      primary = fe_primary,
+      asset_interaction = fe_asset,
+      credit_interaction = fe_credit
+    )
+  })
+
+  names(results) <- paste0("thresh_", thresholds)
+  results
+}
+
+#' Check threshold sensitivity stability
+#'
+#' Evaluates whether core conclusions are stable across thresholds.
+#' Returns TRUE if sign stability holds for all regressions.
+#'
+#' @param sensitivity_results Output from run_threshold_sensitivity()
+#' @return List with stability assessment
+#' @export
+assess_threshold_stability <- function(sensitivity_results) {
+  # Check if all signs are consistently negative
+  all_negative <- all(sensitivity_results$sign_negative, na.rm = TRUE)
+
+  # Check if at least 2/3 are significant
+  sig_count <- sum(sensitivity_results$significant_05, na.rm = TRUE)
+  majority_significant <- sig_count >= ceiling(nrow(sensitivity_results) * 0.66)
+
+  # Calculate coefficient range
+  coef_range <- range(sensitivity_results$beta_price_exposure, na.rm = TRUE)
+  coef_cv <- sd(sensitivity_results$beta_price_exposure, na.rm = TRUE) /
+             abs(mean(sensitivity_results$beta_price_exposure, na.rm = TRUE))
+
+  list(
+    sign_stable = all_negative,
+    majority_significant = majority_significant,
+    coefficient_range = coef_range,
+    coefficient_cv = coef_cv,
+    stable = all_negative && majority_significant,
+    interpretation = if (all_negative && majority_significant) {
+      "ROBUST: Core conclusions stable across threshold choices"
+    } else if (all_negative) {
+      "PARTIALLY ROBUST: Sign stable but significance varies"
+    } else {
+      "NOT ROBUST: Sign changes across thresholds - results depend on operationalization"
+    }
+  )
 }

@@ -76,6 +76,7 @@ def write_outputs(
             "policy_type": model.config.policy_type.value,
             "price_exposure_threshold": model.config.price_exposure_threshold,
             "asset_threshold_percentile": model.config.asset_threshold_percentile,
+            "stayer_threshold": model.config.stayer_threshold,
             "num_households": len(model.agents_by_id),
         },
     )

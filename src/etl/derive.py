@@ -21,16 +21,19 @@ logger = structlog.get_logger(__name__)
 
 def derive_enterprise_targets(
     household_df: pl.DataFrame,
+    stayer_threshold: float = 0.5,
 ) -> pl.DataFrame:
     """Derive enterprise target variables.
 
     Computes:
     - enterprise_indicator: Ever had enterprise (any wave)
     - enterprise_persistence: Proportion of waves with enterprise
-    - classification: stayer (>50%), coper (>0% and <=50%), none (0%)
+    - classification: stayer (>threshold), coper (>0% and <=threshold), none (0%)
 
     Args:
         household_df: Canonical household data.
+        stayer_threshold: Persistence threshold for stayer classification.
+            Default 0.5 ("majority of periods"). See docs/THRESHOLD_JUSTIFICATION.md.
 
     Returns:
         DataFrame with enterprise targets per household.
@@ -54,7 +57,7 @@ def derive_enterprise_targets(
             .alias("enterprise_persistence"),
         ])
         .with_columns([
-            pl.when(pl.col("enterprise_persistence") > 0.5)
+            pl.when(pl.col("enterprise_persistence") > stayer_threshold)
             .then(pl.lit("stayer"))
             .when(pl.col("enterprise_persistence") > 0)
             .then(pl.lit("coper"))
@@ -74,6 +77,7 @@ def derive_enterprise_targets(
         num_households=len(enterprise_targets),
         stayers=enterprise_targets.filter(pl.col("classification") == "stayer").height,
         copers=enterprise_targets.filter(pl.col("classification") == "coper").height,
+        stayer_threshold=stayer_threshold,
     )
 
     return enterprise_targets
@@ -275,6 +279,7 @@ def build_derived_targets(
     output_dir: Path,
     country: Country | str,
     prices_dir: Path | None = None,
+    stayer_threshold: float = 0.5,
 ) -> dict[str, Path]:
     """Build all derived target tables.
 
@@ -285,6 +290,8 @@ def build_derived_targets(
         output_dir: Directory to write derived tables.
         country: Country code.
         prices_dir: Optional directory containing price data.
+        stayer_threshold: Persistence threshold for stayer classification.
+            Default 0.5 ("majority of periods"). See docs/THRESHOLD_JUSTIFICATION.md.
 
     Returns:
         Dictionary mapping table names to output paths.
@@ -303,7 +310,7 @@ def build_derived_targets(
     output_paths = {}
 
     # Derive enterprise targets
-    enterprise_targets = derive_enterprise_targets(household_df)
+    enterprise_targets = derive_enterprise_targets(household_df, stayer_threshold)
     enterprise_path = output_dir / "enterprise_targets.parquet"
     enterprise_targets.write_parquet(enterprise_path)
     output_paths["enterprise_targets"] = enterprise_path
@@ -331,7 +338,9 @@ def build_derived_targets(
     output_paths["household_targets"] = targets_path
 
     # Write manifest
-    _write_derive_manifest(output_dir, country, output_paths, household_targets)
+    _write_derive_manifest(
+        output_dir, country, output_paths, household_targets, stayer_threshold
+    )
 
     return output_paths
 
@@ -341,6 +350,7 @@ def _write_derive_manifest(
     country: Country,
     output_paths: dict[str, Path],
     household_targets: pl.DataFrame,
+    stayer_threshold: float = 0.5,
 ) -> None:
     """Write manifest for derive processing."""
     import subprocess
@@ -373,6 +383,7 @@ def _write_derive_manifest(
         "processing_stage": "derive",
         "num_households": household_targets["household_id"].n_unique(),
         "num_waves": household_targets["wave"].n_unique(),
+        "stayer_threshold": stayer_threshold,
         "output_files": {k: str(v) for k, v in output_paths.items()},
         "classification_summary": classification_counts,
         "git_commit": git_commit,
