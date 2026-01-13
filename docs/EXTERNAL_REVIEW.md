@@ -160,7 +160,8 @@ Both models agree on:
 |--------|--------|--------|
 | Increase state_hash | DONE | 7628e27 |
 | Add clustered SEs | DONE | 7628e27 |
-| Document 50% threshold | PENDING | - |
+| Document 50% threshold | DONE | See THRESHOLD_JUSTIFICATION.md |
+| Sensitivity analysis | DONE | Implemented in validation report |
 | Dependency versioning | EXISTS (renv.lock) | - |
 
 ---

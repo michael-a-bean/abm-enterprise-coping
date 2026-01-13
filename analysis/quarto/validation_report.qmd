@@ -426,8 +426,21 @@ if (dist_results$mode == "validation") {
 Classifying households based on enterprise persistence:
 
 - **Stayer**: Operates enterprise in >50% of observed waves
-- **Coper**: Operates enterprise in <=50% of observed waves (intermittent)
+- **Coper**: Operates enterprise in >0% and <=50% of observed waves (intermittent)
 - **None**: Never operates enterprise
+
+::: {.callout-note}
+## Methods Note: Classification Threshold
+
+The 50% threshold operationalizes "majority-of-periods" enterprise participation. This is an
+**operationalization choice** rather than a structural parameter. Key points:
+
+1. **Rationale**: Stayers operate enterprises "more often than not" across observed waves
+2. **Panel mapping**: For 4-wave Tanzania (2+ waves) and 3-wave Ethiopia (2+ waves)
+3. **Sensitivity**: Core conclusions must be robust to thresholds {0.33, 0.50, 0.67}
+
+See `docs/THRESHOLD_JUSTIFICATION.md` for full scientific justification.
+:::
 
 ```{r classification}
 #| label: tbl-classification
