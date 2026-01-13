@@ -1,7 +1,7 @@
 # Root Makefile
 # ABM Enterprise Coping Model
 
-.PHONY: help setup install test lint format type-check run run-toy run-sim validate setup-r render-report render-report-country clean
+.PHONY: help setup install test lint format type-check run run-toy run-sim validate ingest-data derive-targets setup-r render-report render-report-country clean
 
 # Default target
 help:
@@ -18,6 +18,8 @@ help:
 	@echo "  run-toy            - Run toy simulation"
 	@echo "  run-sim            - Run simulation (use COUNTRY=name)"
 	@echo "  validate           - Validate output schema"
+	@echo "  ingest-data        - Download and process LSMS data"
+	@echo "  derive-targets     - Build derived target tables"
 	@echo ""
 	@echo "R/Analysis Targets:"
 	@echo "  setup-r            - Setup R environment (renv restore)"
@@ -31,6 +33,8 @@ help:
 	@echo "  make setup"
 	@echo "  make test"
 	@echo "  make run-toy"
+	@echo "  make ingest-data country=tanzania"
+	@echo "  make derive-targets country=tanzania"
 	@echo "  make render-report"
 	@echo "  make render-report-country country=tanzania"
 
@@ -86,6 +90,29 @@ run-sim:
 # Validate output schema
 validate:
 	abm validate-schema outputs/toy
+
+# ========================================
+# ETL targets
+# ========================================
+
+# Download and process LSMS data
+# Usage: make ingest-data country=tanzania
+country ?= tanzania
+
+ingest-data:
+	abm ingest-data --country $(country) --output-dir data/processed
+
+# Build derived target tables
+# Usage: make derive-targets country=tanzania
+derive-targets:
+	abm derive-targets --country $(country) --data-dir data/processed
+
+# Full ETL pipeline for a country
+# Usage: make etl-pipeline country=tanzania
+etl-pipeline: ingest-data derive-targets
+	@echo "ETL pipeline complete for $(country)!"
+	@echo "Canonical data: data/processed/$(country)/canonical/"
+	@echo "Derived targets: data/processed/$(country)/derived/"
 
 # ========================================
 # R/Analysis targets

@@ -214,6 +214,195 @@ def validate_schema(
 
 
 @app.command()
+def ingest_data(
+    country: str = typer.Option(
+        "tanzania",
+        "--country",
+        "-c",
+        help="Country code (tanzania or ethiopia)",
+    ),
+    output_dir: Path = typer.Option(
+        Path("data/processed"),
+        "--output-dir",
+        "-o",
+        help="Output directory for processed data",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Force re-download even if data exists",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+) -> None:
+    """Download and process LSMS-ISA data.
+
+    Downloads LSMS-ISA harmonized data from GitHub releases.
+    If download fails, generates synthetic data matching the expected schema.
+
+    Example:
+        abm ingest-data --country tanzania --output-dir data/processed
+        abm ingest-data --country ethiopia --force
+    """
+    from etl.canonical import create_canonical_tables, validate_canonical_tables
+    from etl.ingest import ingest_country_data
+
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(level=log_level)
+
+    typer.echo(f"Ingesting LSMS data for {country}")
+
+    try:
+        # Step 1: Download/generate raw data
+        typer.echo("Step 1: Downloading/generating raw data...")
+        raw_path, manifest = ingest_country_data(
+            country=country,
+            output_dir=output_dir / country,
+            force=force,
+        )
+
+        if manifest.synthetic_data:
+            typer.echo("  Note: Using synthetic data (download failed)")
+        else:
+            typer.echo("  Downloaded real LSMS data")
+
+        typer.echo(f"  Households: {manifest.num_households}")
+        typer.echo(f"  Waves: {manifest.num_waves}")
+
+        # Step 2: Create canonical tables
+        typer.echo("\nStep 2: Creating canonical tables...")
+        canonical_dir = output_dir / country / "canonical"
+        output_paths = create_canonical_tables(
+            raw_dir=raw_path,
+            output_dir=canonical_dir,
+            country=country,
+        )
+
+        for table_name, path in output_paths.items():
+            typer.echo(f"  Created: {table_name}.parquet")
+
+        # Step 3: Validate
+        typer.echo("\nStep 3: Validating...")
+        results = validate_canonical_tables(canonical_dir, country)
+
+        all_valid = all(results.values())
+        if all_valid:
+            typer.echo("  All validations passed!")
+        else:
+            for key, value in results.items():
+                if not value:
+                    typer.echo(f"  FAIL: {key}", err=True)
+
+        typer.echo(f"\nData ingestion complete. Output: {canonical_dir}")
+
+    except Exception as e:
+        typer.echo(f"Error during ingestion: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def derive_targets(
+    country: str = typer.Option(
+        "tanzania",
+        "--country",
+        "-c",
+        help="Country code (tanzania or ethiopia)",
+    ),
+    data_dir: Path = typer.Option(
+        Path("data/processed"),
+        "--data-dir",
+        "-d",
+        help="Directory containing canonical data",
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Output directory (defaults to data_dir/country/derived)",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+) -> None:
+    """Build derived target tables for ABM validation.
+
+    Creates:
+    - enterprise_targets.parquet: Enterprise persistence and classification
+    - asset_targets.parquet: Asset index and quintiles
+    - price_exposure.parquet: Household price exposure
+    - household_targets.parquet: Merged targets for ABM
+
+    Example:
+        abm derive-targets --country tanzania --data-dir data/processed
+    """
+    from etl.derive import build_derived_targets, validate_derived_targets
+
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(level=log_level)
+
+    typer.echo(f"Deriving targets for {country}")
+
+    # Set paths
+    canonical_dir = data_dir / country / "canonical"
+    if output_dir is None:
+        output_dir = data_dir / country / "derived"
+
+    if not canonical_dir.exists():
+        typer.echo(f"Error: Canonical data not found at {canonical_dir}", err=True)
+        typer.echo("Run 'abm ingest-data' first.", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        # Build derived tables
+        typer.echo("Building derived tables...")
+        output_paths = build_derived_targets(
+            data_dir=canonical_dir,
+            output_dir=output_dir,
+            country=country,
+        )
+
+        for table_name, path in output_paths.items():
+            typer.echo(f"  Created: {table_name}.parquet")
+
+        # Validate
+        typer.echo("\nValidating derived tables...")
+        results = validate_derived_targets(output_dir, country)
+
+        all_valid = all(results.values())
+        if all_valid:
+            typer.echo("  All validations passed!")
+        else:
+            for key, value in results.items():
+                if not value:
+                    typer.echo(f"  FAIL: {key}", err=True)
+
+        # Summary statistics
+        import polars as pl
+
+        targets_df = pl.read_parquet(output_paths["household_targets"])
+        enterprise_df = pl.read_parquet(output_paths["enterprise_targets"])
+
+        typer.echo("\nSummary:")
+        typer.echo(f"  Total households: {targets_df['household_id'].n_unique()}")
+        typer.echo(f"  Total observations: {len(targets_df)}")
+
+        # Classification breakdown
+        classification_counts = (
+            enterprise_df
+            .group_by("classification")
+            .count()
+            .sort("classification")
+        )
+        typer.echo("\nClassification:")
+        for row in classification_counts.iter_rows(named=True):
+            typer.echo(f"  {row['classification']}: {row['count']}")
+
+        typer.echo(f"\nDerived targets complete. Output: {output_dir}")
+
+    except Exception as e:
+        typer.echo(f"Error during derivation: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def info() -> None:
     """Show information about the ABM package."""
     import mesa
@@ -224,10 +413,12 @@ def info() -> None:
     typer.echo(f"  Version: {__version__}")
     typer.echo(f"  Mesa version: {mesa.__version__}")
     typer.echo("\nAvailable commands:")
-    typer.echo("  run-toy        Run with synthetic data")
-    typer.echo("  run-sim        Run with real/synthetic data")
+    typer.echo("  run-toy          Run with synthetic data")
+    typer.echo("  run-sim          Run with real/synthetic data")
+    typer.echo("  ingest-data      Download and process LSMS data")
+    typer.echo("  derive-targets   Build derived target tables")
     typer.echo("  validate-schema  Validate outputs")
-    typer.echo("  info           Show this information")
+    typer.echo("  info             Show this information")
 
 
 if __name__ == "__main__":

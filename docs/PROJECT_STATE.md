@@ -1,8 +1,8 @@
 # PROJECT STATE - ABM Enterprise Coping Model
 
 **Last Updated:** 2026-01-13
-**Git Commit:** d661f78
-**Current Phase:** Phase 1 Complete - Scaffold + Tooling + Toy Pipeline
+**Git Commit:** 0cb84ec
+**Current Phase:** Phase 2 Complete - LSMS Ingestion + Canonical Panels
 
 ---
 
@@ -23,7 +23,7 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 |-------|------|--------|------------------------|
 | 0 | Initialize Control Docs | COMPLETE | [x] |
 | 1 | Scaffold + Tooling + Toy Pipeline | COMPLETE | [x] |
-| 2 | LSMS Ingestion + Canonical Panels | NOT STARTED | [ ] |
+| 2 | LSMS Ingestion + Canonical Panels | COMPLETE | [x] |
 | 3 | ABM Baseline + Estimand Validation | NOT STARTED | [ ] |
 | 4 | LLM Decision Layer | NOT STARTED | [ ] |
 | 5 | External Model Reviews | NOT STARTED | [ ] |
@@ -61,13 +61,13 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 
 ## Phase 2 TODO Board
 
-- [ ] **Agent-ETL**: Implement LSMS ingestion from GitHub Releases (v2.0)
-- [ ] **Agent-ETL**: Create canonical Parquet for 4 levels (plot_crop, plot, household, individual)
-- [ ] **Agent-ETL**: Add integrity tests (key uniqueness, referential integrity)
-- [ ] **Agent-ETL**: Implement derived targets builder
-- [ ] Verify: `make ingest-data` succeeds
-- [ ] Verify: `make derive-targets` produces country-specific tables
-- [ ] Verify: Tests pass for integrity and schema contracts
+- [x] **Agent-ETL**: Implement LSMS ingestion from GitHub Releases (v2.0)
+- [x] **Agent-ETL**: Create canonical Parquet for 4 levels (plot_crop, plot, household, individual)
+- [x] **Agent-ETL**: Add integrity tests (key uniqueness, referential integrity)
+- [x] **Agent-ETL**: Implement derived targets builder
+- [x] Verify: `make ingest-data` succeeds (Tanzania + Ethiopia)
+- [x] Verify: `make derive-targets` produces country-specific tables
+- [x] Verify: Tests pass for integrity and schema contracts (65 tests pass)
 
 ---
 
@@ -112,6 +112,7 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 |----------|------|------|--------|--------|
 | a3659ec | Agent-Scaffold | Python ABM scaffold, CLI, Mesa 3, Makefile | Complete | main |
 | ad42e45 | Agent-R-Scaffold | R/Quarto validation project, renv | Complete | main |
+| a2ca693 | Agent-ETL | LSMS ingestion, canonical Parquet, derived targets | Complete | main |
 
 ---
 

@@ -2,6 +2,8 @@
 data/
 !data/.gitkeep
 !data/checksums.txt
+!data/prices/
+!data/prices/*.csv
 
 # Python
 __pycache__/
