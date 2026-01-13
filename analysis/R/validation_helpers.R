@@ -241,11 +241,20 @@ run_asset_interaction_regression <- function(df, low_asset_threshold = 0.4, retu
   model <- fixest::feols(formula, data = df, cluster = ~household_id)
 
   if (return_results) {
-    # Get the interaction coefficient name
+    # Get the interaction coefficient name (handle various fixest naming conventions)
     coef_names <- names(coef(model))
-    interaction_coef <- coef_names[grepl("price_exposure:low_assets", coef_names)][1]
+    interaction_coef <- coef_names[grepl("price_exposure.*low_assets|low_assets.*price_exposure", coef_names)][1]
+
     if (length(interaction_coef) == 0 || is.na(interaction_coef)) {
-      interaction_coef <- "price_exposure:low_assets"
+      # Fallback: return NA results if interaction term not found
+      return(list(
+        coefficient = NA,
+        std_error = NA,
+        p_value = NA,
+        pass = FALSE,
+        error = "Interaction coefficient not found in model",
+        model = model
+      ))
     }
 
     results <- extract_regression_results(model, interaction_coef, expected_sign = "negative")
@@ -300,11 +309,20 @@ run_credit_interaction_regression <- function(df, return_results = FALSE) {
   model <- fixest::feols(formula, data = df, cluster = ~household_id)
 
   if (return_results) {
-    # Get the interaction coefficient name
+    # Get the interaction coefficient name (handle various fixest naming conventions)
     coef_names <- names(coef(model))
-    interaction_coef <- coef_names[grepl("price_exposure:no_credit", coef_names)][1]
+    interaction_coef <- coef_names[grepl("price_exposure.*no_credit|no_credit.*price_exposure", coef_names)][1]
+
     if (length(interaction_coef) == 0 || is.na(interaction_coef)) {
-      interaction_coef <- "price_exposure:no_credit"
+      # Fallback: return NA results if interaction term not found
+      return(list(
+        coefficient = NA,
+        std_error = NA,
+        p_value = NA,
+        pass = FALSE,
+        error = "Interaction coefficient not found in model",
+        model = model
+      ))
     }
 
     results <- extract_regression_results(model, interaction_coef, expected_sign = "negative")
