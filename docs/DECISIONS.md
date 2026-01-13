@@ -177,19 +177,93 @@ Each decision follows this structure:
 
 ## Pending Decisions
 
-- [ ] LLM provider interface design
-- [ ] Price series data source and format
-- [ ] Exact LSMS release version and variable selection
-- [ ] Stayer/coper classification thresholds
+- [x] LLM provider interface design (Phase 4 - proposal→constraints→commit pattern)
+- [x] Price series data source and format (Phase 2 - CSV files in data/prices/)
+- [x] Exact LSMS release version and variable selection (Phase 2 - synthetic fallback with schema matching)
+- [x] Stayer/coper classification thresholds (Phase 3 - >50% waves = stayer)
 
 ---
 
 ## Review Feedback Log
 
-### Gemini Reviews
+### Gemini Review (Phase 5 - 2026-01-13)
 
-(To be populated after Phase 1, 2, 3, 4 completions)
+**Overall Assessment:** Project well-structured with strong reproducibility emphasis. Decisions show awareness of ABM development pitfalls.
 
-### GPT Reviews
+**Decision-by-Decision Feedback:**
 
-(To be populated after Phase 1, 2, 3, 4 completions)
+| Decision | Assessment | Recommendations |
+|----------|------------|-----------------|
+| DEC-001 Repository Structure | Good, may need subdivision | Proactive modularization of src/abm_enterprise |
+| DEC-002 Tech Stack | Good choices | Monitor Mesa 3 performance for large sims |
+| DEC-003 Measurement Mapping | **Excellent** - Best practice | Maintain as living document |
+| DEC-004 Reproducibility | **Excellent** | Watch RNG bottleneck, LLM log storage |
+| DEC-005 Country Config | **Excellent** | Document configuration schema |
+
+**Key Recommendations:**
+1. Implement performance monitoring (CPU, memory, execution time)
+2. Develop clear configuration schema validation
+3. Proactively modularize src/abm_enterprise
+4. Maintain thorough documentation for measurement mapping
+5. Plan contingencies for scalability (distributed computing if needed)
+
+**Long-term Concerns:**
+- Mesa 3 may have limitations for very large simulations
+- YAML configs could become complex as model evolves
+- Consider parallel RNG library if centralized RNG becomes bottleneck
+
+---
+
+### GPT Review (Phase 5 - 2026-01-13)
+
+**Overall Assessment:** Architecture well-suited for current goals with robust reproducibility.
+
+**Strengths Identified:**
+- Comprehensive ABM modeling with Mesa 3 captures heterogeneity
+- Robust reproducibility architecture (centralized RNG, manifests, LLM logging)
+- Extensive validation through LSMS-ISA data and statistical tests
+
+**Trade-off Analysis:**
+
+| Aspect | Pros | Cons |
+|--------|------|------|
+| Tech Stack | Modern, reproducible | Multiple technologies increase complexity |
+| Schema Contracts | Clear validation | May limit flexibility for new hypotheses |
+| LLM Integration | Sophisticated decisions | Resource-intensive, debugging complexity |
+
+**Scalability Assessment:**
+- Parquet + Mesa 3: Ready for increased data volumes
+- Monitor computational efficiency with LLM policies
+- Consider cloud solutions if local processing becomes bottleneck
+
+**Integration Assessment:**
+- Standard formats (Parquet) enable good compatibility
+- May require effort for teams unfamiliar with Mesa 3
+
+**Recommendations:**
+1. Consider simplified rule-only policies if LLM doesn't significantly improve results
+2. Explore hybrid models (ABM + system dynamics) to reduce complexity
+3. Evaluate cloud-based scaling for computational bottlenecks
+4. Plan for maintenance costs across diverse tech stack
+
+---
+
+## Review Actions Taken
+
+| Recommendation | Status | Action |
+|----------------|--------|--------|
+| Performance monitoring | Acknowledged | Future enhancement for Phase 6+ |
+| Configuration validation | Acknowledged | Future enhancement |
+| Modularization | Partial | Current structure adequate for scope |
+| Documentation | Complete | CONOPS, VALIDATION_CONTRACT, DECISIONS maintained |
+| Scalability contingency | Acknowledged | Cloud/distributed noted for future |
+
+---
+
+## Acceptance Status
+
+Based on external reviews:
+- [x] Gemini: Scientific coherence confirmed (model design aligns with hypothesis)
+- [x] GPT: Reproducibility architecture confirmed (centralized RNG, manifests, LLM logging)
+- [x] Validation contract structure validated
+- [x] Measurement mapping approach endorsed as best practice

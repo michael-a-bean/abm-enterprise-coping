@@ -218,7 +218,13 @@ All variables used in validation must be defined in `docs/measurement_mapping.cs
 
 This validation contract will be reviewed and updated based on feedback from external model reviews (Gemini, GPT). Final acceptance requires:
 
-- [ ] Gemini review: Scientific coherence confirmed
-- [ ] GPT review: Reproducibility architecture confirmed
-- [ ] All primary estimand tests passing
-- [ ] Cross-country portability demonstrated
+- [x] Gemini review: Scientific coherence confirmed (2026-01-13)
+- [x] GPT review: Reproducibility architecture confirmed (2026-01-13)
+- [x] All primary estimand tests passing (101 tests pass)
+- [x] Cross-country portability demonstrated (Tanzania + Ethiopia pipelines complete)
+
+**Review Date:** 2026-01-13
+**Reviewers:** Gemini (gemini-2.0-flash), GPT (gpt-4o)
+**Status:** ACCEPTED
+
+See `DECISIONS.md` for detailed review feedback and recommendations.
