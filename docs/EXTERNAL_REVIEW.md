@@ -158,8 +158,8 @@ Both models agree on:
 
 | Action | Status | Commit |
 |--------|--------|--------|
-| Increase state_hash | PENDING | - |
-| Add clustered SEs | PENDING | - |
+| Increase state_hash | DONE | 7628e27 |
+| Add clustered SEs | DONE | 7628e27 |
 | Document 50% threshold | PENDING | - |
 | Dependency versioning | EXISTS (renv.lock) | - |
 
