@@ -304,3 +304,165 @@ class TestClassification:
 
         # Test none: 0% persistence
         assert HouseholdAgent._derive_classification(0.0) == Classification.NONE
+
+
+class TestStalePartitionGuard:
+    """Tests for CLI stale partition detection and clean-output flag."""
+
+    @pytest.fixture
+    def temp_output_dir(self, tmp_path: Path) -> Path:
+        """Create a temporary output directory."""
+        return tmp_path / "outputs" / "test_country" / "test_scenario"
+
+    def test_no_guard_for_empty_dir(self, temp_output_dir: Path) -> None:
+        """Test that guard passes for non-existent directory."""
+        from abm_enterprise.cli import _check_output_dir_compatibility
+
+        # Should not raise
+        _check_output_dir_compatibility(
+            output_dir=temp_output_dir,
+            country="test_country",
+            scenario="test_scenario",
+            num_waves=4,
+            clean_output=False,
+        )
+
+    def test_no_guard_for_no_manifest(self, temp_output_dir: Path) -> None:
+        """Test that guard passes for directory without manifest."""
+        from abm_enterprise.cli import _check_output_dir_compatibility
+
+        temp_output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Should not raise
+        _check_output_dir_compatibility(
+            output_dir=temp_output_dir,
+            country="test_country",
+            scenario="test_scenario",
+            num_waves=4,
+            clean_output=False,
+        )
+
+    def test_guard_passes_matching_config(self, temp_output_dir: Path) -> None:
+        """Test that guard passes for matching configuration."""
+        import json
+        from abm_enterprise.cli import _check_output_dir_compatibility
+
+        temp_output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "country": "test_country",
+            "scenario": "test_scenario",
+            "parameters": {"num_waves": 4},
+        }
+        with open(temp_output_dir / "manifest.json", "w") as f:
+            json.dump(manifest, f)
+
+        # Should not raise
+        _check_output_dir_compatibility(
+            output_dir=temp_output_dir,
+            country="test_country",
+            scenario="test_scenario",
+            num_waves=4,
+            clean_output=False,
+        )
+
+    def test_guard_fails_mismatched_waves(self, temp_output_dir: Path) -> None:
+        """Test that guard fails for mismatched wave count."""
+        import json
+        import typer
+        from abm_enterprise.cli import _check_output_dir_compatibility
+
+        temp_output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "country": "test_country",
+            "scenario": "test_scenario",
+            "parameters": {"num_waves": 4},  # Existing has 4 waves
+        }
+        with open(temp_output_dir / "manifest.json", "w") as f:
+            json.dump(manifest, f)
+
+        # Should raise typer.Exit for mismatch (requesting 3 waves)
+        with pytest.raises(typer.Exit) as exc_info:
+            _check_output_dir_compatibility(
+                output_dir=temp_output_dir,
+                country="test_country",
+                scenario="test_scenario",
+                num_waves=3,  # Different from existing
+                clean_output=False,
+            )
+        assert exc_info.value.exit_code == 1
+
+    def test_guard_fails_mismatched_country(self, temp_output_dir: Path) -> None:
+        """Test that guard fails for mismatched country."""
+        import json
+        import typer
+        from abm_enterprise.cli import _check_output_dir_compatibility
+
+        temp_output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "country": "tanzania",
+            "scenario": "test_scenario",
+            "parameters": {"num_waves": 4},
+        }
+        with open(temp_output_dir / "manifest.json", "w") as f:
+            json.dump(manifest, f)
+
+        # Should raise typer.Exit for mismatch
+        with pytest.raises(typer.Exit):
+            _check_output_dir_compatibility(
+                output_dir=temp_output_dir,
+                country="ethiopia",  # Different country
+                scenario="test_scenario",
+                num_waves=4,
+                clean_output=False,
+            )
+
+    def test_clean_output_removes_mismatched(self, temp_output_dir: Path) -> None:
+        """Test that --clean-output removes directory with mismatched config."""
+        import json
+        from abm_enterprise.cli import _check_output_dir_compatibility
+
+        temp_output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "country": "test_country",
+            "scenario": "test_scenario",
+            "parameters": {"num_waves": 4},
+        }
+        with open(temp_output_dir / "manifest.json", "w") as f:
+            json.dump(manifest, f)
+
+        # Create a test file to verify deletion
+        (temp_output_dir / "test_file.txt").touch()
+        assert temp_output_dir.exists()
+
+        # Should not raise and should delete directory
+        _check_output_dir_compatibility(
+            output_dir=temp_output_dir,
+            country="test_country",
+            scenario="test_scenario",
+            num_waves=3,  # Different waves
+            clean_output=True,  # Clean flag set
+        )
+
+        # Directory should be removed
+        assert not temp_output_dir.exists()
+
+    def test_clean_output_removes_corrupt_manifest(self, temp_output_dir: Path) -> None:
+        """Test that --clean-output handles corrupt manifest."""
+        from abm_enterprise.cli import _check_output_dir_compatibility
+
+        temp_output_dir.mkdir(parents=True, exist_ok=True)
+        # Write invalid JSON
+        with open(temp_output_dir / "manifest.json", "w") as f:
+            f.write("not valid json {{{")
+
+        # Should not raise with clean_output=True
+        _check_output_dir_compatibility(
+            output_dir=temp_output_dir,
+            country="test_country",
+            scenario="test_scenario",
+            num_waves=4,
+            clean_output=True,
+        )
+
+        # Directory should be removed
+        assert not temp_output_dir.exists()

@@ -24,6 +24,87 @@ app = typer.Typer(
 logger = get_logger(__name__)
 
 
+def _check_output_dir_compatibility(
+    output_dir: Path,
+    country: str,
+    scenario: str,
+    num_waves: int,
+    clean_output: bool,
+) -> None:
+    """Check if output directory has compatible configuration.
+
+    If output dir exists with a manifest that has different config,
+    warn and fail unless --clean-output is provided.
+
+    Args:
+        output_dir: Output directory to check.
+        country: Expected country code.
+        scenario: Expected scenario name.
+        num_waves: Expected number of waves.
+        clean_output: If True, delete existing output dir.
+
+    Raises:
+        typer.Exit: If config mismatch and clean_output is False.
+    """
+    import json
+    import shutil
+
+    manifest_path = output_dir / "manifest.json"
+
+    # Check if output dir and manifest exist
+    if not output_dir.exists() or not manifest_path.exists():
+        return  # No existing output, proceed
+
+    # Load existing manifest
+    try:
+        with open(manifest_path) as f:
+            existing_manifest = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        # Corrupt manifest, treat as stale
+        if clean_output:
+            shutil.rmtree(output_dir)
+            typer.echo(f"Cleaned stale output directory: {output_dir}")
+            return
+        typer.echo(
+            f"ERROR: Output directory {output_dir} has corrupt manifest.\n"
+            f"Use --clean-output to remove and regenerate.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    # Check for config mismatches
+    existing_params = existing_manifest.get("parameters", {})
+    existing_country = existing_manifest.get("country", "")
+    existing_scenario = existing_manifest.get("scenario", "")
+    existing_waves = existing_params.get("num_waves", 0)
+
+    mismatches = []
+    if existing_country != country:
+        mismatches.append(f"country: {existing_country} -> {country}")
+    if existing_scenario != scenario:
+        mismatches.append(f"scenario: {existing_scenario} -> {scenario}")
+    if existing_waves != num_waves:
+        mismatches.append(f"num_waves: {existing_waves} -> {num_waves}")
+
+    if mismatches:
+        if clean_output:
+            shutil.rmtree(output_dir)
+            typer.echo(f"Cleaned output directory with mismatched config: {output_dir}")
+            typer.echo(f"  Mismatches: {', '.join(mismatches)}")
+            return
+
+        typer.echo(
+            f"ERROR: Output directory {output_dir} exists with different configuration:\n"
+            f"  {chr(10).join('  - ' + m for m in mismatches)}\n"
+            f"\n"
+            f"This can cause stale parquet partitions from previous runs.\n"
+            f"Use --clean-output to remove existing outputs and regenerate,\n"
+            f"or specify a different output directory.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def run_toy(
     seed: int = typer.Option(42, "--seed", "-s", help="Random seed"),
@@ -34,6 +115,11 @@ def run_toy(
         "--output-dir",
         "-o",
         help="Output directory",
+    ),
+    clean_output: bool = typer.Option(
+        False,
+        "--clean-output",
+        help="Remove existing output directory before writing (prevents stale partitions)",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ) -> None:
@@ -47,6 +133,15 @@ def run_toy(
     """
     log_level = "DEBUG" if verbose else "INFO"
     setup_logging(level=log_level, output_dir=output_dir)
+
+    # Check for stale output directory
+    _check_output_dir_compatibility(
+        output_dir=output_dir,
+        country="tanzania",
+        scenario="toy",
+        num_waves=num_waves,
+        clean_output=clean_output,
+    )
 
     typer.echo(f"Running toy simulation with seed={seed}")
 
@@ -129,6 +224,11 @@ def run_sim(
         "--replay-log",
         help="Path to decision log for replay mode",
     ),
+    clean_output: bool = typer.Option(
+        False,
+        "--clean-output",
+        help="Remove existing output directory before writing (prevents stale partitions)",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ) -> None:
     """Run simulation with derived targets or synthetic data.
@@ -188,6 +288,15 @@ def run_sim(
             country=country,
         )
         typer.echo("Using synthetic data (no --data-dir provided)")
+
+    # Check for stale output directory (after num_waves is known)
+    _check_output_dir_compatibility(
+        output_dir=output_subdir,
+        country=country,
+        scenario=scenario,
+        num_waves=num_waves,
+        clean_output=clean_output,
+    )
 
     # Parse policy type and create policy
     from abm_enterprise.policies.llm import LLMPolicyFactory

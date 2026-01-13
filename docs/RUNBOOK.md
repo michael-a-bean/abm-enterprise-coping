@@ -215,16 +215,34 @@ make setup-r
 ### 3. Stale Parquet Partitions
 
 **Symptom:**
-Row counts don't match manifest (e.g., 2000 rows when expecting 1500)
+Row counts don't match manifest (e.g., 2000 rows when expecting 1500), OR
+error message about mismatched configuration:
+```
+ERROR: Output directory outputs/ethiopia/baseline exists with different configuration:
+  - num_waves: 4 -> 3
+```
 
 **Cause:**
 Previous run with different wave count left old partitions
 
-**Solution:**
+**Solution (automatic):**
+```bash
+# Use --clean-output flag to automatically remove stale outputs
+make run-sim COUNTRY=ethiopia CLEAN_OUTPUT=1
+
+# Or via CLI directly
+abm run-sim ethiopia --clean-output
+```
+
+**Solution (manual):**
 ```bash
 rm -rf outputs/ethiopia/baseline/
 make run-sim COUNTRY=ethiopia
 ```
+
+**Prevention:**
+The CLI now automatically detects config mismatches and fails with a clear error.
+Use `CLEAN_OUTPUT=1` to enable automatic cleanup.
 
 ### 4. LLM API Key Missing
 
