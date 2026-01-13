@@ -41,11 +41,47 @@ make setup-r
 
 ### Quarto (for report rendering)
 
-```bash
-# Install from https://quarto.org/docs/get-started/
-quarto --version
+Quarto is required for rendering validation reports. Version 1.4+ recommended.
 
-# Required: quarto 1.4+
+```bash
+# Check if installed
+quarto --version
+```
+
+**Installation options:**
+
+1. **Direct download (all platforms):**
+   - Visit https://quarto.org/docs/get-started/
+   - Download installer for your platform
+   - Run installer
+
+2. **Homebrew (macOS):**
+   ```bash
+   brew install quarto
+   ```
+
+3. **apt (Debian/Ubuntu):**
+   ```bash
+   # Download .deb from quarto.org, then:
+   sudo dpkg -i quarto-*.deb
+   ```
+
+4. **conda:**
+   ```bash
+   conda install -c conda-forge quarto
+   ```
+
+5. **Docker (no local install needed):**
+   ```bash
+   # Run report rendering in container
+   docker run --rm -v $(pwd):/work -w /work ghcr.io/quarto-dev/quarto \
+     quarto render analysis/quarto/validation_report.qmd
+   ```
+
+**Verification:**
+```bash
+quarto --version
+# Expected: 1.4.x or higher
 ```
 
 ---
@@ -193,11 +229,24 @@ print(f'Households: {df.household_id.nunique()}')
 
 **Symptom:**
 ```
+==========================================
+ERROR: Quarto is not installed or not in PATH
+==========================================
+```
+
+Or older error format:
+```
 make: *** [Makefile:167: render-report] Error 127
 ```
 
 **Solution:**
-Install Quarto from https://quarto.org/docs/get-started/
+The Makefile now provides detailed installation instructions when Quarto is missing.
+See the "Quarto (for report rendering)" section in Prerequisites above.
+
+Quick fix options:
+1. Install Quarto: https://quarto.org/docs/get-started/
+2. Use Docker: `docker run --rm -v $(pwd):/work ghcr.io/quarto-dev/quarto quarto render ...`
+3. Skip report rendering if only simulation validation is needed
 
 ### 2. R Packages Missing
 

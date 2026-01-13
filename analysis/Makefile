@@ -1,7 +1,10 @@
 # Analysis Makefile
 # ABM Enterprise Coping Model - R/Quarto Validation
 
-.PHONY: setup render render-validation render-portability render-country render-report clean help
+.PHONY: setup render render-validation render-portability render-country render-report clean help check-quarto
+
+# Quarto check helper - used by render targets
+QUARTO_CHECK := $(shell command -v quarto 2>/dev/null)
 
 # Default target
 help:
@@ -28,8 +31,43 @@ setup:
 	Rscript -e "renv::restore()"
 	@echo "Done."
 
+# Check if Quarto is installed
+check-quarto:
+ifndef QUARTO_CHECK
+	@echo ""
+	@echo "=========================================="
+	@echo "ERROR: Quarto is not installed or not in PATH"
+	@echo "=========================================="
+	@echo ""
+	@echo "Quarto is required to render validation reports."
+	@echo ""
+	@echo "Installation options:"
+	@echo ""
+	@echo "  1. Download from https://quarto.org/docs/get-started/"
+	@echo ""
+	@echo "  2. Using Homebrew (macOS):"
+	@echo "     brew install quarto"
+	@echo ""
+	@echo "  3. Using apt (Debian/Ubuntu):"
+	@echo "     sudo apt install quarto"
+	@echo ""
+	@echo "  4. Using conda:"
+	@echo "     conda install -c conda-forge quarto"
+	@echo ""
+	@echo "  5. Using Docker (run report in container):"
+	@echo "     docker run --rm -v \$$(pwd):/work -w /work ghcr.io/quarto-dev/quarto \\"
+	@echo "       quarto render analysis/quarto/validation_report.qmd"
+	@echo ""
+	@echo "After installation, verify with: quarto --version"
+	@echo ""
+	@exit 1
+else
+	@echo "Quarto found: $(QUARTO_CHECK)"
+	@quarto --version
+endif
+
 # Render validation report with default (toy) parameters
-render:
+render: check-quarto
 	@echo "Rendering validation report..."
 	cd quarto && quarto render validation_report.qmd
 	@echo "Output: quarto/_output/validation_report.html"
@@ -44,7 +82,7 @@ render-report: render-validation
 
 # Render validation report for specific country with scenario
 # Usage: make render-validation country=tanzania scenario=baseline
-render-validation:
+render-validation: check-quarto
 ifndef country
 	$(error country is not set. Usage: make render-validation country=NAME [scenario=SCENARIO])
 endif
@@ -56,7 +94,7 @@ endif
 	@echo "Output: quarto/validation_report.html"
 
 # Render cross-country portability report
-render-portability:
+render-portability: check-quarto
 	@echo "Rendering portability report..."
 	cd quarto && quarto render portability_report.qmd
 	@echo "Output: quarto/portability_report.html"
