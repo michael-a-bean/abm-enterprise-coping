@@ -35,19 +35,30 @@ read_simulation <- function(output_dir) {
   outcomes_path <- file.path(output_dir, "household_outcomes.parquet")
   manifest_path <- file.path(output_dir, "manifest.json")
 
-  # Validate files exist
-  if (!file.exists(outcomes_path)) {
-    stop(sprintf("Household outcomes file not found: %s", outcomes_path))
+  # Validate outcomes exist (can be file or directory for partitioned data)
+  if (!file.exists(outcomes_path) && !dir.exists(outcomes_path)) {
+    stop(sprintf("Household outcomes not found: %s", outcomes_path))
   }
   if (!file.exists(manifest_path)) {
     stop(sprintf("Manifest file not found: %s", manifest_path))
   }
 
-  # Read household outcomes from Parquet
-  outcomes <- arrow::read_parquet(outcomes_path)
+  # Read household outcomes from Parquet (handle both file and partitioned directory)
+  if (dir.exists(outcomes_path)) {
+    # Partitioned dataset - use open_dataset
+    outcomes <- arrow::open_dataset(outcomes_path) |> dplyr::collect()
+  } else {
+    # Single file
+    outcomes <- arrow::read_parquet(outcomes_path)
+  }
 
   # Read manifest JSON
   manifest <- jsonlite::read_json(manifest_path)
+
+  # Normalize column names (assets_index -> assets)
+  if (!"assets" %in% names(outcomes) && "assets_index" %in% names(outcomes)) {
+    outcomes$assets <- outcomes$assets_index
+  }
 
   # Validate schema
   validate_schema(outcomes)
@@ -73,23 +84,34 @@ read_simulation <- function(output_dir) {
 #' }
 validate_schema <- function(df) {
   # Required columns based on VALIDATION_CONTRACT.md schema
+  # Note: assets may be called assets_index in some outputs
   required_cols <- c(
     "household_id",
     "wave",
     "enterprise_status",
     "price_exposure",
-    "assets",
     "credit_access"
   )
 
   # Check all required columns exist
+  missing_cols <- setdiff(required_cols, names(df))
 
-missing_cols <- setdiff(required_cols, names(df))
+  # Check for assets OR assets_index
+  has_assets <- "assets" %in% names(df) || "assets_index" %in% names(df)
+  if (!has_assets) {
+    missing_cols <- c(missing_cols, "assets (or assets_index)")
+  }
+
   if (length(missing_cols) > 0) {
     stop(sprintf(
       "Missing required columns: %s",
       paste(missing_cols, collapse = ", ")
     ))
+  }
+
+  # Normalize assets column name
+  if (!"assets" %in% names(df) && "assets_index" %in% names(df)) {
+    df$assets <- df$assets_index
   }
 
   # Validate column types
@@ -115,7 +137,7 @@ missing_cols <- setdiff(required_cols, names(df))
     type_errors <- c(type_errors, "price_exposure must be numeric")
   }
 
-  # assets should be numeric
+  # assets should be numeric (now guaranteed to exist after normalization)
   if (!is.numeric(df$assets)) {
     type_errors <- c(type_errors, "assets must be numeric")
   }
