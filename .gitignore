@@ -41,8 +41,8 @@ renv/cellar/
 _site/
 .quarto/
 *_files/
-*.html
-!analysis/quarto/*.qmd
+analysis/quarto/_output/
+analysis/quarto/.quarto/
 
 # IDE
 .vscode/

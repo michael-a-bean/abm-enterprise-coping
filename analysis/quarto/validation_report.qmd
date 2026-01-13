@@ -1,0 +1,424 @@
+---
+title: "ABM Validation Report"
+author: "ABM Enterprise Coping Model"
+date: today
+params:
+  output_dir: "../../outputs/toy"
+  country: "toy"
+format:
+  html:
+    code-fold: true
+    toc: true
+    theme: cosmo
+---
+
+## Overview
+
+This report validates the simulation outputs from the ABM Enterprise Coping Model
+against expected patterns defined in the [Validation Contract](../../docs/VALIDATION_CONTRACT.md).
+
+**Country/Mode:** `r params$country`
+
+**Output Directory:** `r params$output_dir`
+
+```{r setup}
+#| message: false
+#| warning: false
+
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(fixest)
+library(gt)
+library(jsonlite)
+
+# Source helper functions
+source("../R/read_simulation.R")
+source("../R/validation_helpers.R")
+
+# Set ggplot theme
+theme_set(theme_minimal(base_size = 12))
+```
+
+```{r load-data}
+#| message: false
+
+# Read simulation outputs
+sim_data <- read_simulation(params$output_dir)
+
+# Extract for convenience
+outcomes <- sim_data$outcomes
+manifest <- sim_data$manifest
+```
+
+## Manifest
+
+The simulation manifest contains metadata about the model run.
+
+```{r manifest}
+#| label: tbl-manifest
+#| tbl-cap: "Simulation Manifest"
+
+# Convert manifest to displayable format
+manifest_df <- data.frame(
+  Parameter = names(manifest),
+  Value = sapply(manifest, function(x) {
+    if (is.list(x)) {
+      jsonlite::toJSON(x, auto_unbox = TRUE)
+    } else {
+      as.character(x)
+    }
+  }),
+  stringsAsFactors = FALSE
+)
+
+manifest_df |>
+  gt::gt() |>
+  gt::tab_header(
+    title = "Simulation Parameters"
+  )
+```
+
+## Schema Validation
+
+Validating that the simulation output conforms to the expected schema.
+
+```{r schema}
+#| results: hold
+
+# Validate schema (this will error if invalid)
+schema_valid <- tryCatch({
+  validate_schema(outcomes)
+  TRUE
+}, error = function(e) {
+  message("Schema validation failed: ", e$message)
+  FALSE
+})
+
+if (schema_valid) {
+  cat("Schema validation: PASSED\n")
+  cat("\nColumns present:\n")
+  cat(paste(" -", names(outcomes)), sep = "\n")
+  cat("\n\nColumn types:\n")
+  for (col in names(outcomes)) {
+    cat(sprintf(" - %s: %s\n", col, class(outcomes[[col]])[1]))
+  }
+} else {
+  cat("Schema validation: FAILED\n")
+}
+```
+
+## Summary Statistics
+
+```{r summaries}
+#| label: tbl-summaries
+#| tbl-cap: "Overall Summary Statistics"
+
+summaries <- calculate_summaries(outcomes)
+
+summaries$overall |>
+  gt::gt() |>
+  gt::fmt_number(
+    columns = value,
+    decimals = 3
+  ) |>
+  gt::tab_header(
+    title = "Overall Statistics"
+  )
+```
+
+### By Wave
+
+```{r by-wave}
+#| label: tbl-by-wave
+#| tbl-cap: "Statistics by Wave"
+
+summaries$by_wave |>
+  select(-summary_type) |>
+  gt::gt() |>
+  gt::fmt_number(
+    columns = c(enterprise_rate, mean_price_exposure, mean_assets, credit_access_rate),
+    decimals = 3
+  ) |>
+  gt::tab_header(
+    title = "Statistics by Wave"
+  )
+```
+
+### By Asset Quintile
+
+```{r by-quintile}
+#| label: tbl-by-quintile
+#| tbl-cap: "Statistics by Asset Quintile"
+
+summaries$by_asset_quintile |>
+  select(-summary_type) |>
+  gt::gt() |>
+  gt::fmt_number(
+    columns = c(enterprise_rate, mean_price_exposure),
+    decimals = 3
+  ) |>
+  gt::tab_header(
+    title = "Statistics by Asset Quintile",
+    subtitle = "Quintile 1 = Lowest Assets, Quintile 5 = Highest Assets"
+  )
+```
+
+## Distributions
+
+### Enterprise Rate by Wave
+
+```{r plot-enterprise-wave}
+#| label: fig-enterprise-wave
+#| fig-cap: "Enterprise Rate by Wave"
+
+outcomes |>
+  group_by(wave) |>
+  summarize(
+    enterprise_rate = mean(as.numeric(enterprise_status), na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = factor(wave), y = enterprise_rate)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.1f%%", enterprise_rate * 100)),
+            vjust = -0.5, size = 3.5) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.1))) +
+  labs(
+    title = "Enterprise Rate by Wave",
+    x = "Wave",
+    y = "Enterprise Rate"
+  )
+```
+
+### Price Exposure Distribution
+
+```{r plot-price-exposure}
+#| label: fig-price-exposure
+#| fig-cap: "Distribution of Price Exposure"
+
+ggplot(outcomes, aes(x = price_exposure)) +
+  geom_histogram(bins = 30, fill = "steelblue", alpha = 0.8, color = "white") +
+  geom_vline(xintercept = mean(outcomes$price_exposure, na.rm = TRUE),
+             color = "red", linetype = "dashed", linewidth = 1) +
+  labs(
+    title = "Distribution of Price Exposure",
+    subtitle = "Red dashed line = mean",
+    x = "Price Exposure",
+    y = "Count"
+  )
+```
+
+### Asset Distribution
+
+```{r plot-assets}
+#| label: fig-assets
+#| fig-cap: "Distribution of Assets"
+
+ggplot(outcomes, aes(x = assets)) +
+  geom_histogram(bins = 30, fill = "darkgreen", alpha = 0.8, color = "white") +
+  geom_vline(xintercept = mean(outcomes$assets, na.rm = TRUE),
+             color = "red", linetype = "dashed", linewidth = 1) +
+  labs(
+    title = "Distribution of Assets",
+    subtitle = "Red dashed line = mean",
+    x = "Assets",
+    y = "Count"
+  )
+```
+
+### Enterprise Rate by Asset Quintile
+
+```{r plot-enterprise-assets}
+#| label: fig-enterprise-assets
+#| fig-cap: "Enterprise Rate by Asset Quintile"
+
+outcomes |>
+  mutate(asset_quintile = ntile(assets, 5)) |>
+  group_by(asset_quintile) |>
+  summarize(enterprise_rate = mean(as.numeric(enterprise_status), na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(x = factor(asset_quintile), y = enterprise_rate)) +
+  geom_col(fill = "darkgreen", alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.1f%%", enterprise_rate * 100)),
+            vjust = -0.5, size = 3.5) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.1))) +
+  labs(
+    title = "Enterprise Rate by Asset Quintile",
+    subtitle = "Q1 = Lowest Assets, Q5 = Highest Assets",
+    x = "Asset Quintile",
+    y = "Enterprise Rate"
+  )
+```
+
+## Fixed Effects Regression
+
+### Primary Estimand
+
+The primary estimand tests whether negative price shocks increase enterprise entry:
+
+$$\text{enterprise}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+**Target:** $\beta_1 < 0$ (price busts increase enterprise entry)
+
+```{r regression-primary}
+#| label: tbl-regression-primary
+#| tbl-cap: "Primary Fixed Effects Regression"
+
+fe_model <- run_fe_regression(outcomes)
+
+# Display summary
+summary(fe_model)
+```
+
+```{r regression-interpretation}
+#| results: hold
+
+coef_val <- coef(fe_model)["price_exposure"]
+se_val <- sqrt(vcov(fe_model)["price_exposure", "price_exposure"])
+pval <- 2 * pnorm(-abs(coef_val / se_val))
+
+cat("\n--- Primary Estimand Results ---\n")
+cat(sprintf("Coefficient (price_exposure): %.4f\n", coef_val))
+cat(sprintf("Standard Error: %.4f\n", se_val))
+cat(sprintf("t-statistic: %.4f\n", coef_val / se_val))
+cat(sprintf("p-value: %.4f\n", pval))
+cat("\nExpected sign: Negative (price busts increase enterprise entry)\n")
+cat(sprintf("Actual sign: %s\n", ifelse(coef_val < 0, "NEGATIVE (as expected)", "POSITIVE (unexpected)")))
+```
+
+### Secondary Estimand: Asset Heterogeneity
+
+Testing whether low-asset households respond more strongly to price shocks:
+
+$$\text{enterprise}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \beta_2 \times (\text{price\_exposure}_{it} \times \text{low\_assets}_i) + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+**Target:** $\beta_2 < 0$ (low-asset households more responsive)
+
+```{r regression-assets}
+#| label: tbl-regression-assets
+#| tbl-cap: "Asset Interaction Regression"
+
+asset_model <- run_asset_interaction_regression(outcomes)
+summary(asset_model)
+```
+
+### Secondary Estimand: Credit Access Heterogeneity
+
+Testing whether credit-constrained households respond more strongly:
+
+```{r regression-credit}
+#| label: tbl-regression-credit
+#| tbl-cap: "Credit Access Interaction Regression"
+
+credit_model <- run_credit_interaction_regression(outcomes)
+summary(credit_model)
+```
+
+## Stayer/Coper Classification
+
+Classifying households based on enterprise persistence:
+
+- **Stayer**: Operates enterprise in >50% of observed waves
+- **Coper**: Operates enterprise in <=50% of observed waves (intermittent)
+- **None**: Never operates enterprise
+
+```{r classification}
+#| label: tbl-classification
+#| tbl-cap: "Stayer/Coper Classification"
+
+classified <- classify_stayers_copers(outcomes)
+
+# Summary of classifications
+class_summary <- classified |>
+  distinct(household_id, classification) |>
+  count(classification) |>
+  mutate(proportion = n / sum(n))
+
+class_summary |>
+  gt::gt() |>
+  gt::fmt_number(columns = proportion, decimals = 3) |>
+  gt::tab_header(
+    title = "Household Classification",
+    subtitle = "Based on enterprise persistence across waves"
+  )
+```
+
+```{r plot-classification}
+#| label: fig-classification
+#| fig-cap: "Distribution of Household Classifications"
+
+class_summary |>
+  ggplot(aes(x = classification, y = proportion, fill = classification)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.1f%%\n(n=%d)", proportion * 100, n)),
+            vjust = -0.2, size = 3.5) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.15))) +
+  scale_fill_manual(values = c("coper" = "orange", "none" = "gray50", "stayer" = "steelblue")) +
+  labs(
+    title = "Household Classification Distribution",
+    x = "Classification",
+    y = "Proportion"
+  ) +
+  theme(legend.position = "none")
+```
+
+## Distribution Comparison
+
+```{r distribution-comparison}
+# Compare distributions (toy mode - no observed data)
+dist_comparison <- compare_distributions(outcomes, obs_df = NULL)
+
+cat("Mode:", dist_comparison$mode, "\n\n")
+cat("Simulated Data Statistics:\n")
+cat(sprintf("  Overall enterprise rate: %.3f\n", dist_comparison$sim_stats$enterprise_rate))
+cat("\n  Price exposure distribution:\n")
+cat(sprintf("    Mean: %.4f\n", dist_comparison$sim_stats$price_exposure_dist$mean))
+cat(sprintf("    SD: %.4f\n", dist_comparison$sim_stats$price_exposure_dist$sd))
+cat("\n  Asset distribution:\n")
+cat(sprintf("    Mean: %.4f\n", dist_comparison$sim_stats$assets_dist$mean))
+cat(sprintf("    SD: %.4f\n", dist_comparison$sim_stats$assets_dist$sd))
+```
+
+## Conclusions
+
+```{r conclusions}
+#| results: hold
+
+cat("=== VALIDATION SUMMARY ===\n\n")
+
+# Schema validation
+cat("1. Schema Validation: ", ifelse(schema_valid, "PASSED", "FAILED"), "\n\n")
+
+# Data completeness
+n_obs <- nrow(outcomes)
+n_households <- length(unique(outcomes$household_id))
+n_waves <- length(unique(outcomes$wave))
+cat(sprintf("2. Data Completeness:\n"))
+cat(sprintf("   - Observations: %d\n", n_obs))
+cat(sprintf("   - Unique households: %d\n", n_households))
+cat(sprintf("   - Waves: %d\n", n_waves))
+cat(sprintf("   - Panel balanced: %s\n\n",
+            ifelse(n_obs == n_households * n_waves, "YES", "NO")))
+
+# Primary estimand
+primary_sign_correct <- coef(fe_model)["price_exposure"] < 0
+cat(sprintf("3. Primary Estimand (price_exposure effect):\n"))
+cat(sprintf("   - Expected sign: Negative\n"))
+cat(sprintf("   - Actual sign: %s\n", ifelse(primary_sign_correct, "Negative (CORRECT)", "Positive (INCORRECT)")))
+cat(sprintf("   - Coefficient: %.4f\n\n", coef(fe_model)["price_exposure"]))
+
+# Classification
+cat("4. Stayer/Coper Classification:\n")
+for (i in seq_len(nrow(class_summary))) {
+  cat(sprintf("   - %s: %.1f%% (n=%d)\n",
+              class_summary$classification[i],
+              class_summary$proportion[i] * 100,
+              class_summary$n[i]))
+}
+
+cat("\n=== END VALIDATION SUMMARY ===\n")
+```
+
+---
+
+*Report generated on `r Sys.time()` using Quarto `r quarto::quarto_version()`*

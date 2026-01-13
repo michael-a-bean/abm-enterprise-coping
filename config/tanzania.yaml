@@ -1,0 +1,47 @@
+# Tanzania LSMS-ISA Panel Configuration
+# National Panel Survey (NPS) Waves 1-4
+
+country: tanzania
+waves: [1, 2, 3, 4]
+wave_years:
+  1: 2008
+  2: 2010
+  3: 2012
+  4: 2014
+
+# Price shock exposure threshold
+# Negative values indicate adverse price shocks
+# Threshold of -0.1 means households experiencing 10%+ price decline
+price_exposure_threshold: -0.1
+
+# Asset percentile threshold for coping decisions
+# Households below this percentile more likely to enter enterprise
+asset_threshold_percentile: 40
+
+# Country-specific parameters
+parameters:
+  # Exchange rate (TZS per USD, approximate for reference)
+  exchange_rate: 2300
+
+  # Major crops for price shock calculation
+  major_crops:
+    - maize
+    - rice
+    - cassava
+    - beans
+    - groundnuts
+
+  # Agricultural seasons
+  seasons:
+    masika:
+      months: [3, 4, 5, 6]
+      description: "Long rains season"
+    vuli:
+      months: [10, 11, 12]
+      description: "Short rains season"
+
+# Simulation defaults
+simulation:
+  default_seed: 42
+  num_households: 1000
+  policy_type: none

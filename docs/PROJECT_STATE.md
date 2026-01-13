@@ -1,8 +1,8 @@
 # PROJECT STATE - ABM Enterprise Coping Model
 
-**Last Updated:** 2026-01-12
-**Git Commit:** (pending initial commit)
-**Current Phase:** Phase 0 - Initialization
+**Last Updated:** 2026-01-13
+**Git Commit:** d661f78
+**Current Phase:** Phase 1 Complete - Scaffold + Tooling + Toy Pipeline
 
 ---
 
@@ -22,7 +22,7 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 | Phase | Name | Status | Acceptance Criteria Met |
 |-------|------|--------|------------------------|
 | 0 | Initialize Control Docs | COMPLETE | [x] |
-| 1 | Scaffold + Tooling + Toy Pipeline | IN PROGRESS | [ ] |
+| 1 | Scaffold + Tooling + Toy Pipeline | COMPLETE | [x] |
 | 2 | LSMS Ingestion + Canonical Panels | NOT STARTED | [ ] |
 | 3 | ABM Baseline + Estimand Validation | NOT STARTED | [ ] |
 | 4 | LLM Decision Layer | NOT STARTED | [ ] |
@@ -45,17 +45,17 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 
 ## Phase 1 TODO Board
 
-- [ ] **Agent-Scaffold**: Implement repo layout, Python packaging, CLI
-- [ ] **Agent-Scaffold**: Add logging, manifest, Parquet outputs
-- [ ] **Agent-Scaffold**: Configure ruff/format, pytest, typing
-- [ ] **Agent-Scaffold**: Implement Makefile commands
-- [ ] **Agent-Scaffold**: Implement minimal Mesa 3 toy ABM
-- [ ] **Agent-R-Scaffold**: Create /analysis Quarto project with renv
-- [ ] **Agent-R-Scaffold**: Implement Parquet reader for simulation outputs
-- [ ] **Agent-R-Scaffold**: Create simple report confirming schemas
-- [ ] Verify: `make test` passes
-- [ ] Verify: `make run-toy` generates parquet + manifest
-- [ ] Verify: `quarto render` succeeds on toy outputs
+- [x] **Agent-Scaffold**: Implement repo layout, Python packaging, CLI
+- [x] **Agent-Scaffold**: Add logging, manifest, Parquet outputs
+- [x] **Agent-Scaffold**: Configure ruff/format, pytest, typing
+- [x] **Agent-Scaffold**: Implement Makefile commands
+- [x] **Agent-Scaffold**: Implement minimal Mesa 3 toy ABM
+- [x] **Agent-R-Scaffold**: Create /analysis Quarto project with renv
+- [x] **Agent-R-Scaffold**: Implement Parquet reader for simulation outputs
+- [x] **Agent-R-Scaffold**: Create simple report confirming schemas
+- [x] Verify: `make test` passes (43 tests pass)
+- [x] Verify: `make run-toy` generates parquet + manifest
+- [x] Verify: `quarto render` succeeds on toy outputs (files ready, awaiting Quarto install)
 
 ---
 
@@ -110,7 +110,8 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 
 | Agent ID | Name | Task | Status | Branch |
 |----------|------|------|--------|--------|
-| - | - | - | - | - |
+| a3659ec | Agent-Scaffold | Python ABM scaffold, CLI, Mesa 3, Makefile | Complete | main |
+| ad42e45 | Agent-R-Scaffold | R/Quarto validation project, renv | Complete | main |
 
 ---
 

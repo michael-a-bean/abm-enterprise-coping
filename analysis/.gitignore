@@ -1,0 +1,26 @@
+# renv library (contains installed packages)
+renv/library/
+renv/local/
+renv/cellar/
+renv/lock/
+renv/python/
+renv/sandbox/
+renv/staging/
+
+# Quarto outputs
+quarto/_output/
+quarto/.quarto/
+quarto/*_files/
+
+# R session files
+.Rhistory
+.RData
+.Ruserdata
+
+# Temporary files
+*.tmp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
