@@ -96,13 +96,23 @@ SCENARIO ?= baseline
 SEED ?= 42
 CALIBRATE ?= 0
 POLICY ?= none
+CLEAN_OUTPUT ?= 0
 
 # Run simulation with derived data (default for non-toy runs)
+# Use CLEAN_OUTPUT=1 to remove stale partitions from previous runs
 run-sim:
+ifeq ($(CLEAN_OUTPUT),1)
+ifeq ($(CALIBRATE),1)
+	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --data-dir data/processed --calibrate --clean-output --output-dir outputs
+else
+	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --data-dir data/processed --clean-output --output-dir outputs
+endif
+else
 ifeq ($(CALIBRATE),1)
 	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --data-dir data/processed --calibrate --output-dir outputs
 else
 	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --data-dir data/processed --output-dir outputs
+endif
 endif
 
 # Run simulation with synthetic data only (no derived targets)

@@ -18,6 +18,11 @@ price_exposure_threshold: -0.1
 # Households below this percentile more likely to enter enterprise
 asset_threshold_percentile: 40
 
+# Stayer/Coper classification threshold
+# Households with enterprise_persistence > this threshold are classified as "stayers"
+# See docs/THRESHOLD_JUSTIFICATION.md for rationale
+stayer_threshold: 0.5
+
 # Country-specific parameters
 parameters:
   # Exchange rate (TZS per USD, approximate for reference)

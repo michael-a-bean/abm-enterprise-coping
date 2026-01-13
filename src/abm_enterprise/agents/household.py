@@ -15,7 +15,7 @@ from abm_enterprise.data.schemas import EnterpriseStatus, HouseholdState
 
 if TYPE_CHECKING:
     from abm_enterprise.model import EnterpriseCopingModel
-    from abm_enterprise.policies.base import BasePolicy
+    from abm_enterprise.policies.base import Action, BasePolicy
 
 
 class Classification:

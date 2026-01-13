@@ -65,7 +65,7 @@ class DecisionRecord:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DecisionRecord":
+    def from_dict(cls, data: dict[str, Any]) -> DecisionRecord:
         """Create record from dictionary.
 
         Args:
@@ -92,7 +92,8 @@ def compute_state_hash(state: HouseholdState) -> str:
         f"{state.credit_access}|{state.enterprise_status.value}|"
         f"{state.price_exposure:.6f}"
     )
-    return hashlib.sha256(state_str.encode()).hexdigest()[:16]
+    # Use 32 hex chars (128 bits) for collision resistance per external review
+    return hashlib.sha256(state_str.encode()).hexdigest()[:32]
 
 
 class DecisionLogger:
@@ -251,7 +252,7 @@ class DecisionLogger:
             raise FileNotFoundError(f"Log file not found: {path}")
 
         records = []
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -284,8 +285,8 @@ class DecisionLogger:
 
         return {
             "total_decisions": len(self.records),
-            "unique_households": len(set(r.household_id for r in self.records)),
-            "waves": sorted(set(r.wave for r in self.records)),
+            "unique_households": len({r.household_id for r in self.records}),
+            "waves": sorted({r.wave for r in self.records}),
             "action_counts": action_counts,
             "constraint_failure_rate": failed_count / len(self.records),
         }

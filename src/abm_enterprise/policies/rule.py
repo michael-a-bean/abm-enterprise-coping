@@ -255,7 +255,7 @@ class CalibratedRulePolicy(BasePolicy):
         cls,
         country: str,
         config_dir: Path | str | None = None,
-    ) -> "CalibratedRulePolicy":
+    ) -> CalibratedRulePolicy:
         """Create policy from country configuration file.
 
         Args:
@@ -295,7 +295,7 @@ class CalibratedRulePolicy(BasePolicy):
         cls,
         targets_df: Any,  # pandas DataFrame
         country: str = "tanzania",
-    ) -> "CalibratedRulePolicy":
+    ) -> CalibratedRulePolicy:
         """Create policy with thresholds calibrated from derived targets.
 
         Computes thresholds based on actual data distributions:
