@@ -113,7 +113,10 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a></li>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a>
+  <ul class="collapse">
+  <li><a href="#documentation-revision-notes-2026-01-13" id="toc-documentation-revision-notes-2026-01-13" class="nav-link" data-scroll-target="#documentation-revision-notes-2026-01-13"><span class="header-section-number">1.1</span> Documentation Revision Notes (2026-01-13)</a></li>
+  </ul></li>
   <li><a href="#research-question" id="toc-research-question" class="nav-link" data-scroll-target="#research-question"><span class="header-section-number">2</span> Research Question</a>
   <ul class="collapse">
   <li><a href="#problem-statement" id="toc-problem-statement" class="nav-link" data-scroll-target="#problem-statement"><span class="header-section-number">2.1</span> Problem Statement</a></li>
@@ -267,16 +270,80 @@ window.Quarto = {
 
 <section id="introduction" class="level1" data-number="1">
 <h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
-<p>This document presents an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks in Sub-Saharan Africa. The model operationalizes empirical findings from research on household enterprise dynamics and has been calibrated using LSMS-ISA harmonized panel data for Tanzania and Ethiopia.</p>
-<p><strong>Scope and Purpose:</strong> The model provides a computational laboratory for exploring how household-level characteristics (asset holdings, credit access) mediate the relationship between agricultural price volatility and non-farm enterprise participation. It is designed for comparative policy analysis rather than point prediction.</p>
+<p>This document presents an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks in Sub-Saharan Africa. The model operationalizes empirical findings from research on household enterprise dynamics and uses LSMS-ISA harmonized panel data for Tanzania and Ethiopia for calibration and exploratory validation.</p>
+<p><strong>Scope and Purpose:</strong> The model provides a computational laboratory for exploring how household-level characteristics (asset holdings, credit access) potentially influence the relationship between agricultural price volatility and non-farm enterprise participation. It is designed for comparative policy analysis rather than point prediction.</p>
+<p><strong>Generalizability Note:</strong> While calibrated for Tanzania and Ethiopia, the model’s findings may not be directly transferable to other regions or countries without careful consideration of context-specific factors and potential recalibration.</p>
 <p><strong>Document Structure:</strong> This document follows a modified ODD+D (Overview, Design concepts, Details + Decision) protocol for ABM documentation, adapted for computational social science applications. Each claim is traceable to code artifacts, simulation outputs, or validation reports within the repository.</p>
 <p><strong>Limitations Statement:</strong> This ABM is a simplified representation of household decision-making. Agents are necessarily abstractions of real-world households, and the model does not capture general equilibrium effects, market-level feedbacks, or optimal policy derivation. Results should be interpreted as exploratory findings requiring further empirical validation.</p>
+<section id="documentation-revision-notes-2026-01-13" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="documentation-revision-notes-2026-01-13"><span class="header-section-number">1.1</span> Documentation Revision Notes (2026-01-13)</h2>
+<p>This document was audited and revised to address the following issues:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 35%">
+<col style="width: 65%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Issue</th>
+<th>Fix Applied</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A. Wrong external model</td>
+<td>Documented Gemini Deep Research unavailability; used o1, Gemini 2.0 Flash, GPT-4o-mini</td>
+</tr>
+<tr class="even">
+<td>B. Missing equations</td>
+<td>Added explicit LaTeX for secondary estimands with variable definitions</td>
+</tr>
+<tr class="odd">
+<td>C. “Acceptance: p &gt; 0.05”</td>
+<td>Replaced with conservative “fail to reject” language; added non-equivalence caveat</td>
+</tr>
+<tr class="even">
+<td>D. CAS language drift</td>
+<td>Strengthened upfront caveat; clarified “simple ABM” designation</td>
+</tr>
+<tr class="odd">
+<td>E. AdaptiveRulePolicy</td>
+<td>Verified exists in code; no change needed</td>
+</tr>
+<tr class="even">
+<td>F. Over-specific claims</td>
+<td>Softened “wave 2 Tanzania” to “varies by configuration”</td>
+</tr>
+<tr class="odd">
+<td>G. Sample size claims</td>
+<td>Changed to “see manifest.json” with default value</td>
+</tr>
+<tr class="even">
+<td>H. Asset index PCA</td>
+<td>Corrected to describe actual welfare_proxy implementation</td>
+</tr>
+<tr class="odd">
+<td>I. Makefile casing</td>
+<td>Documented intentional design; both conventions correct</td>
+</tr>
+<tr class="even">
+<td>J. Environment claims</td>
+<td>Moved to appendix; added version variability note</td>
+</tr>
+<tr class="odd">
+<td>K. Threshold table</td>
+<td>Added Ethiopia column; clarified discrete operationalization</td>
+</tr>
+</tbody>
+</table>
+<p>See <code>docs/DOC_CHANGELOG.md</code> for detailed mapping of fixes to issues.</p>
+</section>
 </section>
 <section id="research-question" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> Research Question</h1>
 <section id="problem-statement" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="problem-statement"><span class="header-section-number">2.1</span> Problem Statement</h2>
-<p>The core hypothesis under investigation is that <strong>negative cash-crop price shocks induce enterprise entry as coping behavior</strong>, with heterogeneous responses by asset holdings and credit access.</p>
+<p>The core hypothesis under investigation is that <strong>negative cash-crop price shocks are associated with enterprise entry as coping behavior</strong>, with heterogeneous responses by asset holdings and credit access. The model explores this association rather than establishing definitive causation.</p>
 <p>This hypothesis derives from empirical work on household enterprises in developing economies, which documents that:</p>
 <ol type="1">
 <li>Non-farm enterprises serve as income smoothing mechanisms during agricultural stress</li>
@@ -329,10 +396,20 @@ window.Quarto = {
 </ul>
 <p><strong>Secondary Estimands:</strong></p>
 <ol type="1">
-<li><strong>Asset Heterogeneity:</strong> <span class="math inline">\(\beta_2 &lt; 0\)</span> for interaction term (price_exposure × low_assets)</li>
-<li><strong>Credit Heterogeneity:</strong> <span class="math inline">\(\beta_2 &lt; 0\)</span> for interaction term (price_exposure × no_credit)</li>
+<li><p><strong>Asset Heterogeneity:</strong> <span class="math display">\[\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \beta_2 \times (\text{price\_exposure}_{it} \times \text{low\_assets}_i) + \alpha_i + \gamma_t + \varepsilon_{it}\]</span> Target: <span class="math inline">\(\beta_2 &lt; 0\)</span> (low-asset households more responsive to price shocks)</p></li>
+<li><p><strong>Credit Heterogeneity:</strong> <span class="math display">\[\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \beta_2 \times (\text{price\_exposure}_{it} \times \text{no\_credit}_i) + \alpha_i + \gamma_t + \varepsilon_{it}\]</span> Target: <span class="math inline">\(\beta_2 &lt; 0\)</span> (credit-constrained households more responsive)</p></li>
 </ol>
-<p>These estimands are specified in <code>docs/VALIDATION_CONTRACT.md</code> and tested in the R validation pipeline.</p>
+<p><strong>Variable Definitions:</strong></p>
+<ul>
+<li><span class="math inline">\(\text{enterprise\_entry}_{it}\)</span>: Binary indicator (0/1) for household <span class="math inline">\(i\)</span> entering enterprise in wave <span class="math inline">\(t\)</span></li>
+<li><span class="math inline">\(\text{price\_exposure}_{it}\)</span>: Weighted crop price change for household <span class="math inline">\(i\)</span> in wave <span class="math inline">\(t\)</span></li>
+<li><span class="math inline">\(\text{low\_assets}_i\)</span>: Binary indicator for households in bottom 40% of asset distribution</li>
+<li><span class="math inline">\(\text{no\_credit}_i\)</span>: Binary indicator for households without formal credit access</li>
+<li><span class="math inline">\(\alpha_i\)</span>: Household fixed effect (absorbs time-invariant heterogeneity)</li>
+<li><span class="math inline">\(\gamma_t\)</span>: Wave fixed effect (absorbs time-specific shocks)</li>
+<li><span class="math inline">\(\varepsilon_{it}\)</span>: Idiosyncratic error term (clustered at household level)</li>
+</ul>
+<p>These estimands are specified in <code>docs/VALIDATION_CONTRACT.md</code> and tested in the R validation pipeline using <code>fixest::feols()</code> with household-clustered standard errors.</p>
 </section>
 <section id="why-agent-based-modeling" class="level2" data-number="2.4">
 <h2 data-number="2.4" class="anchored" data-anchor-id="why-agent-based-modeling"><span class="header-section-number">2.4</span> Why Agent-Based Modeling</h2>
@@ -359,20 +436,20 @@ window.Quarto = {
 </section>
 <section id="on-complex-adaptive-systems-framing" class="level2" data-number="2.5">
 <h2 data-number="2.5" class="anchored" data-anchor-id="on-complex-adaptive-systems-framing"><span class="header-section-number">2.5</span> On Complex Adaptive Systems Framing</h2>
-<p>The ABM incorporates some but not all characteristics typically associated with Complex Adaptive Systems (CAS):</p>
-<p><strong>Implemented:</strong></p>
+<p><strong>Important Caveat:</strong> While this model incorporates some elements associated with complex adaptive systems (CAS), such as heterogeneity and non-linearity, it is <strong>not</strong> a fully realized CAS model. Specifically, it does not include key features like emergence, agent learning/adaptation, or significant agent-agent interaction. Interpretations of the model’s results should be made with this limitation in mind.</p>
+<p><strong>Implemented (Partial CAS Features):</strong></p>
 <ul>
-<li><strong>Heterogeneity:</strong> Agents differ in initial endowments and respond differently to identical shocks.</li>
+<li><strong>Heterogeneity:</strong> Agents differ in initial endowments and respond differently to identical shocks based on their characteristics.</li>
 <li><strong>Non-linearity:</strong> Threshold-based decision rules create discontinuous responses to price exposure.</li>
 <li><strong>Path dependence:</strong> Enterprise persistence classification depends on history of participation.</li>
 </ul>
-<p><strong>Not Implemented:</strong></p>
+<p><strong>Not Implemented (Missing CAS Features):</strong></p>
 <ul>
-<li><strong>Emergence:</strong> The current model does not exhibit emergent aggregate patterns not programmed into individual agents.</li>
-<li><strong>Agent learning/adaptation:</strong> Agents do not update their decision rules based on experience.</li>
-<li><strong>Agent-agent interaction:</strong> No social network effects or peer influences.</li>
+<li><strong>Emergence:</strong> The current model does not exhibit emergent aggregate patterns not programmed into individual agents. Aggregate outcomes are summations of individual decisions without feedback loops.</li>
+<li><strong>Agent learning/adaptation:</strong> Agents do not update their decision rules based on experience. Decision thresholds remain fixed throughout simulation.</li>
+<li><strong>Agent-agent interaction:</strong> No social network effects, peer influences, or market-level feedbacks.</li>
 </ul>
-<p>This is a “simple ABM” rather than a full CAS model. The CAS framing is partial and should not be overclaimed.</p>
+<p>This is a “simple ABM” designed for transparent mechanism exploration rather than a full CAS model. Results should not be interpreted as capturing emergent system dynamics.</p>
 </section>
 </section>
 <section id="diagram-model-architecture" class="level1" data-number="3">
@@ -641,7 +718,7 @@ window.Quarto = {
 <ul>
 <li><strong>Temporal:</strong> Discrete waves (2-3 year intervals between LSMS rounds)</li>
 <li><strong>Spatial:</strong> Not explicitly modeled; region included as control variable</li>
-<li><strong>Population:</strong> 500-1000 households per country (full sample varies)</li>
+<li><strong>Population:</strong> Sample size varies by run configuration; see <code>manifest.json</code> for exact N (default: 500 households per country in synthetic mode)</li>
 </ul>
 </section>
 </section>
@@ -759,7 +836,7 @@ FINALIZE:
 <p><span class="math display">\[\text{price\_exposure} = \sum_{c \in \text{crops}} \text{area\_share}_c \times \text{price\_change}_c\]</span></p>
 <p>Computed in <code>src/etl/derive.py</code> from crop areas and price series.</p>
 <p><strong>Asset Index:</strong></p>
-<p>First principal component of household durables, livestock, and land. Standardized to mean=0, SD=1.</p>
+<p>Uses <code>welfare_proxy</code> variable from LSMS data as simplified asset proxy. In the current implementation, this is a direct proxy rather than a computed PCA. A full implementation would compute the first principal component of household durables, livestock, and land holdings. Asset quintiles are computed within each wave for cross-sectional comparability.</p>
 <p><strong>Classification:</strong></p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> enterprise_persistence <span class="op">&gt;</span> <span class="fl">0.5</span>:</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"stayer"</span></span>
@@ -1307,7 +1384,7 @@ class RulePolicy(BasePolicy):
 <h3 data-number="7.3.3" class="anchored" data-anchor-id="behavioral-patterns"><span class="header-section-number">7.3.3</span> Behavioral Patterns</h3>
 <p>Observed patterns consistent with theory:</p>
 <ul>
-<li><strong>Copers</strong> show higher enterprise entry rates in shock waves (wave 2 for Tanzania)</li>
+<li><strong>Copers</strong> show higher enterprise entry rates in shock waves (specific wave varies by country and price configuration; see validation reports)</li>
 <li><strong>Stayers</strong> maintain enterprise across waves regardless of price exposure</li>
 <li>Asset-poor households show stronger price-enterprise correlation</li>
 </ul>
@@ -1406,27 +1483,35 @@ class RulePolicy(BasePolicy):
 <p><strong>Kolmogorov-Smirnov Test:</strong></p>
 <p>Compares cumulative distribution functions of enterprise rates:</p>
 <p><span class="math display">\[D = \sup_x |F_{sim}(x) - F_{obs}(x)|\]</span></p>
-<p>Acceptance: p &gt; 0.05 (cannot reject that distributions are identical).</p>
+<p><strong>Interpretation:</strong> If p &gt; 0.05, we fail to reject the null hypothesis that distributions are drawn from the same population. This does <strong>not</strong> prove distributions are identical—only that insufficient evidence of difference was found given the sample size.</p>
 <p><strong>Chi-Squared Test:</strong></p>
 <p>For categorical variables (enterprise status):</p>
 <p><span class="math display">\[\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}\]</span></p>
-<p>Acceptance: p &gt; 0.05.</p>
-<p><strong>Limitations:</strong></p>
+<p><strong>Interpretation:</strong> If p &gt; 0.05, we fail to reject similarity. As with the KS test, this is not evidence of equivalence.</p>
+<p><strong>Critical Statistical Caveats:</strong></p>
 <ul>
-<li>KS test assumes continuous distributions; application to binary outcomes is imperfect.</li>
-<li>Chi-squared test requires sufficient expected counts; small cells may violate assumptions.</li>
-<li>Neither test proves distributions are identical, only that we cannot reject similarity.</li>
+<li><strong>Non-equivalence:</strong> Failing to reject the null hypothesis (p &gt; 0.05) does <strong>not</strong> prove distributions are equivalent. It means the test lacked power to detect a difference, or the difference is small. Equivalence testing would require different methodology (e.g., TOST procedures).</li>
+<li><strong>KS limitations:</strong> The KS test assumes continuous distributions; application to binary outcomes is imperfect and may have reduced power.</li>
+<li><strong>Chi-squared limitations:</strong> Requires sufficient expected counts (typically ≥5 per cell); small cells may violate assumptions.</li>
+<li><strong>Multiple testing:</strong> Running multiple distribution tests increases false positive risk without correction.</li>
 </ul>
 </section>
 <section id="threshold-sensitivity-analysis" class="level2" data-number="8.4">
 <h2 data-number="8.4" class="anchored" data-anchor-id="threshold-sensitivity-analysis"><span class="header-section-number">8.4</span> Threshold Sensitivity Analysis</h2>
 <p>Core conclusions are tested across multiple stayer classification thresholds:</p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 27%">
+<col style="width: 27%">
+<col style="width: 27%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>Threshold</th>
 <th>Stayer Definition</th>
-<th>Tanzania Waves Required</th>
+<th>Tanzania (4 waves)</th>
+<th>Ethiopia (3 waves)</th>
 </tr>
 </thead>
 <tbody>
@@ -1434,20 +1519,24 @@ class RulePolicy(BasePolicy):
 <td>33%</td>
 <td>&gt;33% enterprise waves</td>
 <td>≥2 of 4 waves</td>
+<td>≥2 of 3 waves</td>
 </tr>
 <tr class="even">
 <td>50%</td>
 <td>&gt;50% enterprise waves</td>
 <td>≥3 of 4 waves</td>
+<td>≥2 of 3 waves</td>
 </tr>
 <tr class="odd">
 <td>67%</td>
 <td>&gt;67% enterprise waves</td>
 <td>≥3 of 4 waves</td>
+<td>all 3 waves</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Acceptance:</strong> Sign stability across all thresholds; majority of results significant at p &lt; 0.05.</p>
+<p><strong>Note on Discrete Operationalization:</strong> Due to integer wave counts, the 50% and 67% thresholds yield identical operational requirements for Tanzania (both require ≥3 waves). This is inherent in discretization and documented in <code>docs/THRESHOLD_JUSTIFICATION.md</code>.</p>
+<p><strong>Robustness Criterion:</strong> Sign stability across all thresholds; majority of results significant at p &lt; 0.05. If coefficient signs change across thresholds, conclusions are threshold-dependent and should be interpreted cautiously.</p>
 </section>
 <section id="heat-maps-and-response-surfaces" class="level2" data-number="8.5">
 <h2 data-number="8.5" class="anchored" data-anchor-id="heat-maps-and-response-surfaces"><span class="header-section-number">8.5</span> Heat Maps and Response Surfaces</h2>
@@ -1612,28 +1701,41 @@ class RulePolicy(BasePolicy):
 </section>
 <section id="external-model-consultations" class="level2" data-number="11.3">
 <h2 data-number="11.3" class="anchored" data-anchor-id="external-model-consultations"><span class="header-section-number">11.3</span> External Model Consultations</h2>
-<section id="gemini-2.0-flash-sections-1-3-methodology-review" class="level3" data-number="11.3.1">
-<h3 data-number="11.3.1" class="anchored" data-anchor-id="gemini-2.0-flash-sections-1-3-methodology-review"><span class="header-section-number">11.3.1</span> Gemini 2.0 Flash (Sections 1-3 Methodology Review)</h3>
-<p><strong>Purpose:</strong> Review Introduction, Research Question, and ABM/CAS Justification for methodological correctness.</p>
-<p><strong>Key Feedback Incorporated:</strong></p>
+<p><strong>Audit Date:</strong> 2026-01-13</p>
+<p><strong>Important Note:</strong> Gemini Deep Research was <strong>unavailable</strong> during this audit (API returned error: <code>invalid JSON in google.learning.genai.api.interactions.v1main.Interaction</code>). Alternative models were used as documented below. Full call logs are available in <code>docs/EXTERNAL_MODEL_CALL_LOGS.md</code>.</p>
+<section id="openai-o1-sections-1-3-architecture-review" class="level3" data-number="11.3.1">
+<h3 data-number="11.3.1" class="anchored" data-anchor-id="openai-o1-sections-1-3-architecture-review"><span class="header-section-number">11.3.1</span> OpenAI o1 (Sections 1-3 Architecture Review)</h3>
+<p><strong>Purpose:</strong> Review ABM architecture for methodology appropriateness, trade-offs, and scalability.</p>
+<p><strong>Key Feedback:</strong></p>
 <ol type="1">
-<li>Changed “validated against” to “calibrated using” to avoid overclaiming</li>
-<li>Added explicit justification for 50% stayer threshold</li>
-<li>Documented what CAS features are and are not implemented</li>
-<li>Added limitations on computational cost, parameter uncertainty, and oversimplification</li>
-<li>Clarified that agents have continuous variables but discrete decision-making</li>
+<li>Confirmed ABM methodology is appropriate for research question</li>
+<li>Noted price exogeneity limits policy realism for macro-level interventions</li>
+<li>Highlighted that simplified decision rules may understate long-term dynamics</li>
+<li>Recommended documenting hidden costs of future CAS feature additions</li>
 </ol>
 </section>
-<section id="gpt-4o-sections-8-10-inference-review" class="level3" data-number="11.3.2">
-<h3 data-number="11.3.2" class="anchored" data-anchor-id="gpt-4o-sections-8-10-inference-review"><span class="header-section-number">11.3.2</span> GPT-4o (Sections 8-10 Inference Review)</h3>
-<p><strong>Purpose:</strong> Red-team reproducibility claims, inference validity, and policy interpretation.</p>
+<section id="gemini-2.0-flash-sections-1-3-casoverclaim-review" class="level3" data-number="11.3.2">
+<h3 data-number="11.3.2" class="anchored" data-anchor-id="gemini-2.0-flash-sections-1-3-casoverclaim-review"><span class="header-section-number">11.3.2</span> Gemini 2.0 Flash (Sections 1-3 CAS/Overclaim Review)</h3>
+<p><strong>Purpose:</strong> Audit CAS justification and identify overclaims requiring conservative rewording.</p>
 <p><strong>Key Feedback Incorporated:</strong></p>
 <ol type="1">
-<li>Replaced “BehaviorSpace-style robustness” with “Monte Carlo robustness checks”</li>
-<li>Clarified p-value threshold interpretation (conventional, not definitive)</li>
-<li>Added caveats about structural comparability for simulation-to-real comparison</li>
-<li>Emphasized exploratory nature of findings</li>
-<li>Strengthened external validity limitations statement</li>
+<li>Changed “mediate” to “potentially influence” (causal language)</li>
+<li>Changed “induce” to “are associated with” (hypothesis framing)</li>
+<li>Strengthened CAS caveat to appear upfront</li>
+<li>Added omitted variable bias, data limitations, and behavioral assumptions caveats</li>
+<li>Added generalizability note for cross-context transferability</li>
+</ol>
+</section>
+<section id="gpt-4o-mini-sections-8-10-inference-review" class="level3" data-number="11.3.3">
+<h3 data-number="11.3.3" class="anchored" data-anchor-id="gpt-4o-mini-sections-8-10-inference-review"><span class="header-section-number">11.3.3</span> GPT-4o-mini (Sections 8-10 Inference Review)</h3>
+<p><strong>Purpose:</strong> Red-team statistical methodology, p-value interpretations, and robustness claims.</p>
+<p><strong>Key Feedback Incorporated:</strong></p>
+<ol type="1">
+<li>Replaced “Acceptance: p &gt; 0.05” with explicit non-equivalence caveat</li>
+<li>Added note that failing to reject null does not prove distributions identical</li>
+<li>Recommended standardizing robustness protocol (number of runs, metrics)</li>
+<li>Added missing diagnostics note (multicollinearity, homoscedasticity)</li>
+<li>Emphasized that alternative tests (Anderson-Darling) could be considered</li>
 </ol>
 </section>
 </section>
@@ -1760,11 +1862,114 @@ class RulePolicy(BasePolicy):
 <span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">"asset_threshold"</span>: targets_df[<span class="st">"asset_index"</span>].median(),</span>
 <span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">"exit_asset_threshold"</span>: targets_df[<span class="st">"asset_index"</span>].quantile(<span class="fl">0.10</span>),</span>
 <span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>    }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="appendix-b-external-model-call-logs-summary" class="level2" data-number="11.7">
+<h2 data-number="11.7" class="anchored" data-anchor-id="appendix-b-external-model-call-logs-summary"><span class="header-section-number">11.7</span> Appendix B: External Model Call Logs (Summary)</h2>
+<p>External model consultations were conducted on 2026-01-13 to audit documentation for scientific validity and statistical correctness.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 29%">
+<col style="width: 26%">
+<col style="width: 23%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Model</th>
+<th>Sections</th>
+<th>Purpose</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>OpenAI o1</td>
+<td>1-3</td>
+<td>Architecture/methodology review</td>
+<td>Success</td>
+</tr>
+<tr class="even">
+<td>Gemini 2.0 Flash</td>
+<td>1-3</td>
+<td>CAS/overclaim audit</td>
+<td>Success</td>
+</tr>
+<tr class="odd">
+<td>GPT-4o-mini</td>
+<td>8-10</td>
+<td>Inference/statistical review</td>
+<td>Success</td>
+</tr>
+<tr class="even">
+<td>Gemini Deep Research</td>
+<td>1-3</td>
+<td>Deep research review</td>
+<td>Failed (API error)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Full logs:</strong> See <code>docs/EXTERNAL_MODEL_CALL_LOGS.md</code> for complete prompts and responses.</p>
+<p><strong>Consensus recommendations incorporated:</strong></p>
+<ol type="1">
+<li>Causal language softened (“potentially influence” vs “mediate”)</li>
+<li>CAS framing caveat strengthened upfront</li>
+<li>Statistical test interpretation clarified (non-equivalence caveat)</li>
+<li>Missing caveats added (omitted variables, data limitations, behavioral assumptions)</li>
+<li>Sample size and threshold documentation improved</li>
+</ol>
+</section>
+<section id="appendix-c-build-environment" class="level2" data-number="11.8">
+<h2 data-number="11.8" class="anchored" data-anchor-id="appendix-c-build-environment"><span class="header-section-number">11.8</span> Appendix C: Build Environment</h2>
+<p>Software versions may vary by installation. The following were used for development:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Python</td>
+<td>3.11+</td>
+<td>Required for structural pattern matching</td>
+</tr>
+<tr class="even">
+<td>Mesa</td>
+<td>3.0.3</td>
+<td>See manifest.json for exact version per run</td>
+</tr>
+<tr class="odd">
+<td>R</td>
+<td>4.x</td>
+<td>renv.lock pins exact package versions</td>
+</tr>
+<tr class="even">
+<td>Quarto</td>
+<td>See system</td>
+<td>Version varies by installation</td>
+</tr>
+<tr class="odd">
+<td>OS</td>
+<td>Linux/macOS/Windows</td>
+<td>Cross-platform compatible</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reproducibility:</strong></p>
+<ul>
+<li>Python dependencies: <code>pyproject.toml</code> + <code>pip install -e .</code></li>
+<li>R dependencies: <code>renv::restore()</code> from <code>renv.lock</code></li>
+<li>Exact versions for any run: Check <code>manifest.json</code> in output directory</li>
+</ul>
+<p><strong>Environment variability note:</strong> This document may render with different Quarto versions. Core content is stable; minor formatting variations are expected.</p>
 <hr>
 <p><em>Document generated: 2026-01-13</em></p>
 <p><em>Repository: abm-enterprise-coping</em></p>
 <p><em>Git commit: See manifest.json in output directory</em></p>
-</section>
+<p><em>Audit branch: docs/20260113-qmd-audit-regeneration</em></p>
 </section>
 </div></section></div></main>
 <!-- /main column -->
