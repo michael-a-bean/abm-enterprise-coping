@@ -22,7 +22,6 @@ from abm_enterprise.model import (
 from abm_enterprise.policies.rule import CalibratedRulePolicy
 from abm_enterprise.utils.rng import set_seed
 
-
 # Path to derived data
 DATA_DIR = Path(__file__).parent.parent / "data" / "processed"
 
@@ -182,7 +181,6 @@ class TestDerivedTargetsIntegration:
 
         # At least some households in each category (if data has variation)
         # This is a soft check - actual proportions depend on data
-        total_count = len(outcomes)
         unique_classifications = outcomes["classification"].nunique()
 
         # Should have at least 2 classification types in most datasets

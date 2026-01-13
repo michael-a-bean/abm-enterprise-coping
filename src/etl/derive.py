@@ -9,14 +9,12 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 
-import numpy as np
 import polars as pl
 import structlog
 
 from etl.prices import compute_household_price_exposure, load_crop_prices
-from etl.schemas import COUNTRY_CONFIG, Country
+from etl.schemas import Country
 
 logger = structlog.get_logger(__name__)
 
@@ -427,10 +425,10 @@ def validate_derived_targets(
         logger.warning("Some required files missing", results=results)
         return results
 
-    # Load tables
+    # Load tables (exposure_df loaded to verify readability)
     enterprise_df = pl.read_parquet(data_dir / "enterprise_targets.parquet")
     asset_df = pl.read_parquet(data_dir / "asset_targets.parquet")
-    exposure_df = pl.read_parquet(data_dir / "price_exposure.parquet")
+    _exposure_df = pl.read_parquet(data_dir / "price_exposure.parquet")  # noqa: F841
     targets_df = pl.read_parquet(data_dir / "household_targets.parquet")
 
     # Enterprise targets validation

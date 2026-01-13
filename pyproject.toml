@@ -67,6 +67,7 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
+    "B008",  # function call in default argument (required for typer)
 ]
 
 [tool.ruff.format]

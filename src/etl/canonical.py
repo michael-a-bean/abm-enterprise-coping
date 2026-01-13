@@ -15,11 +15,6 @@ import structlog
 from etl.schemas import (
     COUNTRY_CONFIG,
     Country,
-    HouseholdRecord,
-    IndividualRecord,
-    PlotCropRecord,
-    PlotRecord,
-    ProcessingManifest,
 )
 
 logger = structlog.get_logger(__name__)
@@ -108,13 +103,7 @@ def _process_household_table(
     """Process and validate household table."""
     df = pl.read_parquet(input_path)
 
-    # Ensure required columns exist
-    required_cols = [
-        "household_id", "wave", "enterprise_status", "credit_access",
-        "welfare_proxy", "region", "urban", "household_size"
-    ]
-
-    # Check and cast columns
+    # Check and cast required columns
     df = df.select([
         pl.col("household_id").cast(pl.Utf8),
         pl.col("wave").cast(pl.Int32),

@@ -27,8 +27,8 @@ from abm_enterprise.policies.constraints import (
     NoExitIfNotInEnterpriseConstraint,
     get_default_constraints,
 )
-from abm_enterprise.policies.llm import LLMPolicy, LLMPolicyFactory
-from abm_enterprise.policies.logging import DecisionLogger, DecisionRecord, compute_state_hash
+from abm_enterprise.policies.llm import LLMPolicyFactory
+from abm_enterprise.policies.logging import DecisionLogger, compute_state_hash
 from abm_enterprise.policies.prompts import (
     PromptConfig,
     build_prompt,
@@ -538,8 +538,8 @@ class TestReplayIntegration:
             stub_actions = [stub_policy.decide(state) for state in states]
             stub_log_path = stub_policy.save_log()
 
-            # Replay
-            replay_policy = LLMPolicyFactory.create_replay_policy(
+            # Replay (policy created to verify factory works, records loaded for comparison)
+            _replay_policy = LLMPolicyFactory.create_replay_policy(
                 log_path=stub_log_path,
                 log_dir=Path(tmpdir) / "replay",
             )

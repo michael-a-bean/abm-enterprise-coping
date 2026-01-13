@@ -178,7 +178,7 @@ def run_sim(
 
         except FileNotFoundError as e:
             typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from None
     else:
         from abm_enterprise.data.synthetic import generate_synthetic_households
 
@@ -276,7 +276,7 @@ def run_sim(
                 "calibrated", "llm_stub", "llm_replay", "llm_claude", "llm_openai"
             ]
             typer.echo(f"Valid options: {valid_options}", err=True)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from None
 
     # Create config
     config = SimulationConfig(
@@ -312,7 +312,7 @@ def run_sim(
 
             # Print decision summary
             summary = model_policy.get_log_summary()
-            typer.echo(f"\nLLM Decision Summary:")
+            typer.echo("\nLLM Decision Summary:")
             typer.echo(f"  Total decisions: {summary['total_decisions']}")
             typer.echo(f"  Constraint failure rate: {summary['constraint_failure_rate']:.1%}")
             for action, count in summary.get('action_counts', {}).items():
@@ -435,7 +435,7 @@ def ingest_data(
             country=country,
         )
 
-        for table_name, path in output_paths.items():
+        for table_name, _path in output_paths.items():
             typer.echo(f"  Created: {table_name}.parquet")
 
         # Step 3: Validate
@@ -454,7 +454,7 @@ def ingest_data(
 
     except Exception as e:
         typer.echo(f"Error during ingestion: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
@@ -516,7 +516,7 @@ def derive_targets(
             country=country,
         )
 
-        for table_name, path in output_paths.items():
+        for table_name, _path in output_paths.items():
             typer.echo(f"  Created: {table_name}.parquet")
 
         # Validate
@@ -556,7 +556,7 @@ def derive_targets(
 
     except Exception as e:
         typer.echo(f"Error during derivation: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()

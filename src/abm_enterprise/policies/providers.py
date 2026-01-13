@@ -346,7 +346,7 @@ class ClaudeProvider(LLMProvider):
                 raise ImportError(
                     "anthropic package required for ClaudeProvider. "
                     "Install with: pip install anthropic"
-                )
+                ) from None
         return self._client
 
     def generate(self, prompt: str) -> str:
@@ -437,7 +437,7 @@ class OpenAIProvider(LLMProvider):
                 raise ImportError(
                     "openai package required for OpenAIProvider. "
                     "Install with: pip install openai"
-                )
+                ) from None
         return self._client
 
     def generate(self, prompt: str) -> str:

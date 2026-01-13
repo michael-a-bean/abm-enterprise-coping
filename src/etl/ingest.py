@@ -6,12 +6,10 @@ with fallback to synthetic data generation if real data is unavailable.
 
 from __future__ import annotations
 
-import shutil
 import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -189,7 +187,6 @@ def _generate_synthetic_households(
     rng: np.random.Generator,
 ) -> pl.DataFrame:
     """Generate synthetic household panel data."""
-    config = COUNTRY_CONFIG[country]
     id_prefix = "TZ" if country == Country.TANZANIA else "ET"
 
     # Regions based on country
@@ -407,7 +404,7 @@ def _generate_synthetic_plot_crops(
         else:
             shares = [1.0]
 
-        for crop_code, share in zip(selected_crops, shares):
+        for crop_code, share in zip(selected_crops, shares, strict=True):
             area_planted = plot_area * share
 
             # Harvest quantity based on area (kg per hectare varies by crop)
