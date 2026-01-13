@@ -92,7 +92,8 @@ def compute_state_hash(state: HouseholdState) -> str:
         f"{state.credit_access}|{state.enterprise_status.value}|"
         f"{state.price_exposure:.6f}"
     )
-    return hashlib.sha256(state_str.encode()).hexdigest()[:16]
+    # Use 32 hex chars (128 bits) for collision resistance per external review
+    return hashlib.sha256(state_str.encode()).hexdigest()[:32]
 
 
 class DecisionLogger:

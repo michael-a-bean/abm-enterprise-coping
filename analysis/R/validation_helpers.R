@@ -178,7 +178,8 @@ run_fe_regression <- function(df, formula = NULL, return_results = FALSE) {
   }
 
   # Run fixed effects regression using fixest
-  model <- fixest::feols(formula, data = df)
+  # Use clustered SEs at household level per external review (addresses serial correlation)
+  model <- fixest::feols(formula, data = df, cluster = ~household_id)
 
   if (return_results) {
     results <- extract_regression_results(model, "price_exposure", expected_sign = "negative")
@@ -236,7 +237,8 @@ run_asset_interaction_regression <- function(df, low_asset_threshold = 0.4, retu
   # Formula with interaction term
   formula <- enterprise_status ~ price_exposure + price_exposure:low_assets | household_id + wave
 
-  model <- fixest::feols(formula, data = df)
+  # Use clustered SEs at household level per external review
+  model <- fixest::feols(formula, data = df, cluster = ~household_id)
 
   if (return_results) {
     # Get the interaction coefficient name
@@ -294,7 +296,8 @@ run_credit_interaction_regression <- function(df, return_results = FALSE) {
   # Formula with interaction term
   formula <- enterprise_status ~ price_exposure + price_exposure:no_credit | household_id + wave
 
-  model <- fixest::feols(formula, data = df)
+  # Use clustered SEs at household level per external review
+  model <- fixest::feols(formula, data = df, cluster = ~household_id)
 
   if (return_results) {
     # Get the interaction coefficient name
