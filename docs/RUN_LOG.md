@@ -125,13 +125,13 @@ Classification distribution:
 
 **Command:** `make render-report-country country=tanzania`
 
-**Result:** SKIPPED - Quarto not installed
+**Result:** PASS
 
-**Prerequisites:**
-- R: AVAILABLE (v4.5.2)
-- Quarto: NOT INSTALLED
+**Output:** `analysis/quarto/_output/validation_report.html`
 
-**Note:** Report rendering requires Quarto installation. Install from https://quarto.org/docs/get-started/
+**R fixes applied:**
+- Handle partitioned parquet directories with `arrow::open_dataset()`
+- Normalize `assets_index` → `assets` column name
 
 ---
 
@@ -179,7 +179,9 @@ Classification distribution:
 
 **Command:** `make render-report-country country=ethiopia`
 
-**Result:** SKIPPED - Quarto not installed (same as Tanzania)
+**Result:** PASS
+
+**Output:** `analysis/quarto/_output/validation_report.html`
 
 ---
 
@@ -230,7 +232,7 @@ Enterprise participation rate by wave:
 | Preflight Lint | PASS | After fixes |
 | Toy Pipeline | PASS | 400 records, manifest valid |
 | Tanzania Baseline | PASS | 2000 records, 500 households |
-| Tanzania Report | SKIPPED | Quarto not installed |
+| Tanzania Report | PASS | HTML generated |
 | Ethiopia Baseline | PASS | 1500 records, 500 households, 3 waves |
-| Ethiopia Report | SKIPPED | Quarto not installed |
+| Ethiopia Report | PASS | HTML generated |
 | LLM Stub Run | PASS | Constraint system verified |
