@@ -1,0 +1,1065 @@
+---
+title: "Enterprise Coping Under Agricultural Price Shocks: An Agent-Based Model"
+subtitle: "Technical Documentation and Validation Report"
+author:
+  - name: "Michael [Author]"
+    affiliation: "Personal AI Infrastructure"
+date: "2026-01-13"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# Introduction
+
+This document presents an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks in Sub-Saharan Africa. The model operationalizes empirical findings from research on household enterprise dynamics and has been calibrated using LSMS-ISA harmonized panel data for Tanzania and Ethiopia.
+
+**Scope and Purpose:** The model provides a computational laboratory for exploring how household-level characteristics (asset holdings, credit access) mediate the relationship between agricultural price volatility and non-farm enterprise participation. It is designed for comparative policy analysis rather than point prediction.
+
+**Document Structure:** This document follows a modified ODD+D (Overview, Design concepts, Details + Decision) protocol for ABM documentation, adapted for computational social science applications. Each claim is traceable to code artifacts, simulation outputs, or validation reports within the repository.
+
+**Limitations Statement:** This ABM is a simplified representation of household decision-making. Agents are necessarily abstractions of real-world households, and the model does not capture general equilibrium effects, market-level feedbacks, or optimal policy derivation. Results should be interpreted as exploratory findings requiring further empirical validation.
+
+# Research Question
+
+## Problem Statement
+
+The core hypothesis under investigation is that **negative cash-crop price shocks induce enterprise entry as coping behavior**, with heterogeneous responses by asset holdings and credit access.
+
+This hypothesis derives from empirical work on household enterprises in developing economies, which documents that:
+
+1. Non-farm enterprises serve as income smoothing mechanisms during agricultural stress
+2. Enterprise entry rates increase following adverse price shocks
+3. Response heterogeneity exists by household wealth and financial access
+
+## Classification Framework
+
+Households are classified based on enterprise persistence across survey waves:
+
+| Classification | Definition | Interpretation |
+|----------------|------------|----------------|
+| **Stayer** | Enterprise in >50% of observed waves | Persistent entrepreneur |
+| **Coper** | Enterprise in ≤50% of observed waves (but >0) | Intermittent/shock-responsive |
+| **None** | No enterprise participation | Non-entrepreneur |
+
+**Threshold Justification:** The 50% threshold is an operationalization choice documented in `docs/THRESHOLD_JUSTIFICATION.md`. For Tanzania (4 waves), this requires enterprise participation in 3+ waves; for Ethiopia (3 waves), in 2+ waves. Sensitivity analysis across 33%, 50%, and 67% thresholds is conducted to assess robustness.
+
+## Primary and Secondary Estimands
+
+**Primary Estimand:**
+$$\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \alpha_i + \gamma_t + \varepsilon_{it}$$
+
+- Target: $\beta_1 < 0$ (adverse price shocks increase enterprise entry)
+- Acceptance criterion: Sign match required; magnitude within 1 SE preferred
+
+**Secondary Estimands:**
+
+1. **Asset Heterogeneity:** $\beta_2 < 0$ for interaction term (price_exposure × low_assets)
+2. **Credit Heterogeneity:** $\beta_2 < 0$ for interaction term (price_exposure × no_credit)
+
+These estimands are specified in `docs/VALIDATION_CONTRACT.md` and tested in the R validation pipeline.
+
+## Why Agent-Based Modeling
+
+An agent-based approach was selected because:
+
+1. **Heterogeneity Representation:** Household decisions depend on individual-level characteristics (assets, credit access, enterprise history) that vary across the population. The model initializes agents from empirical distributions in the LSMS-ISA data.
+
+2. **Discrete State Transitions:** Enterprise entry/exit represents binary state changes that are more naturally modeled as discrete events than as continuous equilibrium outcomes. While agents also have continuous variables (asset levels), the core behavioral mechanism involves threshold-triggered transitions.
+
+3. **Counterfactual Analysis:** The research question requires exploring "what-if" scenarios under different policy interventions. ABMs provide a framework for such counterfactual analysis, though with important caveats about validity.
+
+4. **Trajectory Tracking:** The panel data structure permits calibrating agent decision rules and comparing simulated trajectories against observed household paths.
+
+**Contrast with Alternatives:**
+
+- **Reduced-form regressions:** Identify correlations but cannot simulate counterfactual policy scenarios. While regressions establish empirical regularities, they do not capture the mechanisms driving household behavior.
+- **Structural estimation:** Requires strong parametric assumptions about utility functions and market clearing that may not hold in Sub-Saharan African contexts.
+
+**What ABM Does NOT Provide:**
+
+- **General equilibrium effects:** Prices are exogenous; household decisions do not affect aggregate price levels. This is a significant simplification with implications for policy scenarios involving large-scale interventions.
+- **Market-level feedbacks:** No agent-to-agent interactions or market clearing mechanisms.
+- **Optimal policy derivation:** Only comparative analysis across pre-specified scenarios.
+- **Parameter uncertainty quantification:** The model has multiple parameters whose values are uncertain. Sensitivity analysis is conducted but does not fully characterize parameter uncertainty.
+- **Real-world prediction:** The model is an exploratory tool, not a forecasting system.
+
+## On Complex Adaptive Systems Framing
+
+The ABM incorporates some but not all characteristics typically associated with Complex Adaptive Systems (CAS):
+
+**Implemented:**
+
+- **Heterogeneity:** Agents differ in initial endowments and respond differently to identical shocks.
+- **Non-linearity:** Threshold-based decision rules create discontinuous responses to price exposure.
+- **Path dependence:** Enterprise persistence classification depends on history of participation.
+
+**Not Implemented:**
+
+- **Emergence:** The current model does not exhibit emergent aggregate patterns not programmed into individual agents.
+- **Agent learning/adaptation:** Agents do not update their decision rules based on experience.
+- **Agent-agent interaction:** No social network effects or peer influences.
+
+This is a "simple ABM" rather than a full CAS model. The CAS framing is partial and should not be overclaimed.
+
+# Diagram Model Architecture
+
+## Concept of Operations
+
+The system architecture follows a layered design documented in `docs/CONOPS.md`:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Orchestration Layer                       │
+│           (CLI interface, configuration loading)             │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    ETL Pipeline                              │
+│   ┌──────────┐    ┌───────────┐    ┌──────────────────┐    │
+│   │  Ingest  │ →  │ Canonical │ →  │ Derived Targets  │    │
+│   │  (LSMS)  │    │  Parquet  │    │ (ABM-ready)      │    │
+│   └──────────┘    └───────────┘    └──────────────────┘    │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    ABM Simulation                            │
+│   ┌──────────────┐    ┌────────────┐    ┌───────────────┐  │
+│   │ Mesa Model   │ →  │ Household  │ →  │ Policy        │  │
+│   │              │    │ Agents     │    │ Decision      │  │
+│   └──────────────┘    └────────────┘    └───────────────┘  │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    Validation Layer                          │
+│   ┌──────────────┐    ┌────────────┐    ┌───────────────┐  │
+│   │ R Analysis   │ →  │ Quarto     │ →  │ HTML Reports  │  │
+│   │ (fixest)     │    │ Rendering  │    │               │  │
+│   └──────────────┘    └────────────┘    └───────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Information Flow
+
+**Data Pipeline:**
+
+1. **Ingest:** LSMS-ISA microdata downloaded or synthetic data generated (`src/etl/ingest.py`)
+2. **Canonicalize:** Raw data transformed to standardized Parquet tables (`src/etl/canonical.py`)
+3. **Derive:** Target variables computed (enterprise persistence, asset index, price exposure) (`src/etl/derive.py`)
+4. **Simulate:** Mesa model executes wave-by-wave with policy decisions (`src/abm_enterprise/model.py`)
+5. **Validate:** R scripts run fixed-effects regressions and distribution tests (`analysis/R/validation_helpers.R`)
+
+**Key Data Artifacts:**
+
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| `household_targets.parquet` | `data/processed/{country}/derived/` | ABM input (merged targets) |
+| `household_outcomes.parquet` | `outputs/{country}/{scenario}/` | Simulation output |
+| `manifest.json` | `outputs/{country}/{scenario}/` | Reproducibility metadata |
+| `decisions_*.jsonl` | `outputs/{country}/{scenario}/decision_logs/` | LLM decision audit trail |
+
+## Component Responsibilities
+
+| Component | File(s) | Responsibility |
+|-----------|---------|----------------|
+| `EnterpriseCopingModel` | `src/abm_enterprise/model.py` | Orchestrate simulation, manage agents |
+| `HouseholdAgent` | `src/abm_enterprise/agents/household.py` | State machine, decision requests |
+| `BasePolicy` | `src/abm_enterprise/policies/base.py` | Decision interface |
+| `RulePolicy` | `src/abm_enterprise/policies/rule.py` | Threshold-based decisions |
+| `LLMPolicy` | `src/abm_enterprise/policies/llm.py` | LLM-augmented decisions |
+| `DecisionLogger` | `src/abm_enterprise/policies/logging.py` | Audit trail for reproducibility |
+
+# ODD+D Framework
+
+This section documents the model following the ODD+D protocol (Overview, Design concepts, Details + Decision layer).
+
+## Purpose
+
+The model simulates household enterprise entry decisions under agricultural price shocks to:
+
+1. Replicate empirical patterns observed in LSMS-ISA panel data
+2. Explore heterogeneous responses by asset level and credit access
+3. Compare outcomes across policy intervention scenarios
+
+The model is **not** designed for:
+
+- Point prediction of enterprise rates
+- Optimal policy derivation
+- General equilibrium analysis
+
+## State Variables and Scales
+
+### Agent-Level State (HouseholdAgent)
+
+| Variable | Type | Range | Description |
+|----------|------|-------|-------------|
+| `household_id` | str | - | Unique identifier |
+| `wave` | int | 1-4 (TZ), 1-3 (ET) | Current survey wave |
+| `assets` | float | ~[-2, +2] | Standardized asset index |
+| `credit_access` | int | {0, 1} | Formal credit access |
+| `enterprise_status` | int | {0, 1} | Current enterprise participation |
+| `enterprise_entry` | int | {0, 1} | Entry this wave (0→1 transition) |
+| `enterprise_persistence` | float | [0, 1] | Fraction of waves with enterprise |
+| `price_exposure` | float | ~[-0.5, +0.5] | Price shock exposure |
+| `classification` | str | {stayer, coper, none} | Household type |
+
+### Model-Level State (EnterpriseCopingModel)
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `config` | SimulationConfig | Simulation parameters |
+| `current_wave` | int | Current simulation step |
+| `household_data` | DataFrame | Panel data for all waves |
+| `outcomes` | list[dict] | Collected output records |
+
+### Scales
+
+- **Temporal:** Discrete waves (2-3 year intervals between LSMS rounds)
+- **Spatial:** Not explicitly modeled; region included as control variable
+- **Population:** 500-1000 households per country (full sample varies)
+
+## Process Overview and Scheduling
+
+### Simulation Loop
+
+```
+INITIALIZE:
+  Load configuration from YAML
+  Load/generate household panel data
+  Create agents from wave 1 data
+  Assign policy to all agents
+
+FOR wave IN 1..num_waves:
+  FOR each agent:
+    Update state from wave data (assets, credit, price_exposure)
+    Request decision from policy: decide(HouseholdState) → Action
+    Apply action: update enterprise_status
+    Detect entry: if prev_status=0 and status=1 → enterprise_entry=1
+  END FOR
+  Collect outcomes for all agents
+  Increment wave
+END FOR
+
+FINALIZE:
+  Export outcomes to Parquet
+  Write manifest.json with provenance
+```
+
+### Scheduling Order
+
+- **Within-wave:** Agents process sequentially (order does not affect outcomes since no agent-agent interaction)
+- **Across-waves:** Waves process in chronological order
+
+## Design Concepts
+
+### Emergence
+
+**Status: Minimal**
+
+The model does not exhibit strong emergent behavior. Aggregate enterprise rates are the sum of individual decisions without feedback loops or nonlinear interactions. This is a limitation of the current design.
+
+### Adaptation
+
+**Status: Not Implemented**
+
+Agents do not learn or adapt decision rules based on experience. The `AdaptiveRulePolicy` adjusts thresholds by wave number as a modeling choice, not as agent learning.
+
+### Objectives
+
+Agents implicitly seek to maintain welfare through income smoothing. Enterprise entry is modeled as a coping response to price shocks, not as utility maximization. This is a behavioral (descriptive) rather than normative model.
+
+### Sensing
+
+Agents observe:
+
+- Their own asset level (perfectly)
+- Their own credit access status (perfectly)
+- Their own price exposure (perfectly)
+- Their current enterprise status (perfectly)
+
+Agents do not observe other agents' states.
+
+### Interaction
+
+**Status: Not Implemented**
+
+No direct agent-agent interaction. Households make independent decisions.
+
+### Stochasticity
+
+- **Initialization:** Synthetic data generation uses random draws from specified distributions
+- **Decision-making:** `RandomPolicy` available for baseline comparison; core `RulePolicy` is deterministic
+- **Reproducibility:** Centralized RNG via `utils/rng.py` with seed recorded in manifest
+
+### Heterogeneity
+
+Agents differ in:
+
+- Initial asset endowments (from data)
+- Credit access (from data)
+- Enterprise persistence (from data)
+- Classification (derived from persistence)
+
+Policy response depends on these characteristics, creating heterogeneous outcomes.
+
+## Details
+
+### Initialization
+
+**From Real Data (Tanzania/Ethiopia):**
+
+1. Load `household_targets.parquet` from derived targets
+2. Extract wave 1 observations
+3. Create `HouseholdAgent` for each household with initial state
+4. Assign classification based on `enterprise_persistence`
+
+**From Synthetic Data (Toy Mode):**
+
+1. Generate `n` households with:
+   - Assets: log-normal distribution, standardized
+   - Credit: logistic probability based on assets
+   - Enterprise: logistic probability based on assets + credit
+   - Price exposure: N(0, 0.15) with wave-specific systematic shocks
+2. Create balanced panel (all households × all waves)
+
+### Submodels
+
+**Price Exposure Calculation:**
+
+$$\text{price\_exposure} = \sum_{c \in \text{crops}} \text{area\_share}_c \times \text{price\_change}_c$$
+
+Computed in `src/etl/derive.py` from crop areas and price series.
+
+**Asset Index:**
+
+First principal component of household durables, livestock, and land. Standardized to mean=0, SD=1.
+
+**Classification:**
+
+```python
+if enterprise_persistence > 0.5:
+    return "stayer"
+elif enterprise_persistence > 0:
+    return "coper"
+else:
+    return "none"
+```
+
+## Decision Layer
+
+The decision layer is the core behavioral module determining enterprise entry/exit. Two policy implementations are available:
+
+### RulePolicy (Deterministic Thresholds)
+
+**Entry Logic:**
+```
+IF enterprise_status = 0 AND
+   price_exposure < price_threshold AND
+   assets < asset_threshold
+THEN action = ENTER_ENTERPRISE
+ELSE action = NO_CHANGE
+```
+
+**Exit Logic:**
+```
+IF enterprise_status = 1 AND
+   assets < exit_asset_threshold AND
+   (credit_required_for_stability → credit_access = 0)
+THEN action = EXIT_ENTERPRISE
+ELSE action = NO_CHANGE
+```
+
+**Default Parameters:**
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `price_threshold` | -0.1 | 10% price decline triggers response |
+| `asset_threshold` | 0.0 | Below-median assets |
+| `exit_asset_threshold` | -1.0 | Severe asset poverty |
+
+**CalibratedRulePolicy:** Computes thresholds from data distributions using `compute_calibration_thresholds()`.
+
+### LLMPolicy (Proposal-Constraints-Commit)
+
+For experimental LLM-augmented decision-making:
+
+```
+[Stage 1: PROPOSAL]
+  Build prompt from HouseholdState
+  Call LLM provider (Stub/Claude/OpenAI)
+  Parse proposed action from response
+
+[Stage 2: CONSTRAINTS]
+  Validate action against constraint set:
+  - NoEntryIfAlreadyInEnterprise
+  - NoExitIfNotInEnterprise
+  - MinimumAssetsConstraint (threshold: -0.5)
+  - CreditRequiredConstraint (for low-asset entry)
+
+[Stage 3: COMMIT]
+  If constraints pass: apply proposed action
+  If constraints fail: apply fallback (NO_CHANGE)
+  Log decision with state hash for reproducibility
+```
+
+**Constraint Implementations:**
+
+| Constraint | Logic | Purpose |
+|------------|-------|---------|
+| `MinimumAssetsConstraint` | Entry requires assets ≥ -0.5 | Prevent unrealistic entry |
+| `CreditRequiredConstraint` | Low-asset entry requires credit | Financing requirement |
+| `NoEntryIfAlreadyInEnterprise` | Cannot enter if status=1 | State consistency |
+| `NoExitIfNotInEnterprise` | Cannot exit if status=0 | State consistency |
+
+**Providers:**
+
+| Provider | Purpose | Deterministic |
+|----------|---------|---------------|
+| `StubProvider` | Rule-based baseline | Yes |
+| `ReplayProvider` | Reproduce logged decisions | Yes |
+| `ClaudeProvider` | Anthropic Claude API | No (but temp=0) |
+| `OpenAIProvider` | OpenAI GPT API | No (but temp=0) |
+
+**Decision Logging:**
+
+All LLM decisions logged to JSONL with:
+- Input state + state hash
+- Prompt text
+- Raw LLM response
+- Constraint validation result
+- Final action applied
+- Latency metrics
+
+This enables deterministic replay and audit of LLM decision-making.
+
+# Coding
+
+## Module Structure
+
+The codebase follows a layered architecture:
+
+```
+src/
+├── abm_enterprise/           # Core ABM package
+│   ├── model.py              # Mesa 3 model class (11.8 KB)
+│   ├── cli.py                # Typer CLI (23.4 KB)
+│   ├── outputs.py            # Output handling (6.0 KB)
+│   ├── agents/
+│   │   └── household.py      # Agent implementation (11.2 KB)
+│   ├── policies/
+│   │   ├── base.py           # Abstract interface (3.3 KB)
+│   │   ├── rule.py           # Rule-based policies (14.4 KB)
+│   │   ├── llm.py            # LLM policies (10.8 KB)
+│   │   ├── providers.py      # LLM backends (14.7 KB)
+│   │   ├── constraints.py    # Feasibility checks (7.2 KB)
+│   │   └── logging.py        # Decision logging (9.3 KB)
+│   ├── data/
+│   │   ├── schemas.py        # Pydantic schemas (8.0 KB)
+│   │   └── synthetic.py      # Synthetic generation (5.6 KB)
+│   └── utils/
+│       ├── rng.py            # Centralized RNG (2.8 KB)
+│       ├── manifest.py       # Provenance tracking (4.5 KB)
+│       └── logging.py        # Structured logging (4.7 KB)
+└── etl/                      # Data pipeline
+    ├── ingest.py             # Data download (16.2 KB)
+    ├── canonical.py          # Standardization (12.1 KB)
+    ├── derive.py             # Target computation (14.5 KB)
+    └── schemas.py            # ETL schemas (7.1 KB)
+```
+
+## High-Level Pseudocode
+
+The simulation flow aligns with the ConOps:
+
+```
+# Model Initialization (model.py)
+class EnterpriseCopingModel(mesa.Model):
+    def __init__(config, household_data, policy):
+        set_seed(config.seed)
+        self.agents = create_agents(household_data.wave_1)
+        for agent in agents:
+            agent.policy = policy
+
+    def step():
+        for agent in agents:
+            wave_data = household_data[current_wave]
+            agent.update_state(wave_data)
+            agent.step()  # Request policy decision
+        collect_outcomes()
+        current_wave += 1
+
+    def run():
+        for wave in 1..num_waves:
+            step()
+
+# Agent Step (agents/household.py)
+class HouseholdAgent(mesa.Agent):
+    def step():
+        prev_status = enterprise_status
+        state = get_household_state()
+        action = policy.decide(state)
+        apply_action(action)
+        if prev_status == 0 and enterprise_status == 1:
+            enterprise_entry = 1
+
+# Policy Decision (policies/rule.py)
+class RulePolicy(BasePolicy):
+    def decide(state):
+        if state.enterprise_status == NO_ENTERPRISE:
+            if state.price_exposure < price_threshold:
+                if state.assets < asset_threshold:
+                    return ENTER_ENTERPRISE
+        return NO_CHANGE
+```
+
+## Key Design Patterns
+
+| Pattern | Implementation | Purpose |
+|---------|----------------|---------|
+| Strategy | `BasePolicy` → `RulePolicy`, `LLMPolicy` | Pluggable decision logic |
+| Factory | `LLMPolicyFactory.create_*()` | Simplify policy instantiation |
+| Composite | `CompositeConstraint` | Combine multiple constraints |
+| Adapter | `LLMProvider` subclasses | Uniform interface to LLM APIs |
+
+## Code References
+
+Representative implementations are documented in Appendix A. Key files:
+
+- Decision interface: `src/abm_enterprise/policies/base.py:43-53`
+- Entry evaluation: `src/abm_enterprise/policies/rule.py:73-91`
+- Agent state machine: `src/abm_enterprise/agents/household.py:179-212`
+- Calibration: `src/abm_enterprise/model.py:compute_calibration_thresholds()`
+
+# The Model User Interface
+
+## Command-Line Interface
+
+The model is executed via a Typer-based CLI (`abm` command). No graphical user interface is provided.
+
+**Rationale for CLI-only design:**
+
+1. Target users are researchers comfortable with command-line tools
+2. CLI enables scripting, automation, and reproducible workflows
+3. GUI would add complexity without proportionate benefit for this use case
+
+## Primary Commands
+
+### `abm run-toy` - Quick Test
+
+```bash
+abm run-toy --seed 42 --households 100 --waves 4 --output-dir outputs/toy
+```
+
+Generates synthetic data and runs a rapid test simulation. Useful for development and pipeline verification.
+
+### `abm run-sim` - Full Simulation
+
+```bash
+abm run-sim tanzania \
+  --scenario baseline \
+  --policy none \
+  --data-dir data/processed \
+  --output-dir outputs \
+  --calibrate \
+  --seed 42
+```
+
+Runs simulation with real or derived data. Key options:
+
+| Option | Description |
+|--------|-------------|
+| `--scenario` | Scenario name (for output organization) |
+| `--policy` | Policy type: none, credit_access, price_support, asset_transfer, calibrated, llm_stub |
+| `--calibrate` | Auto-compute thresholds from data |
+| `--decision-log-dir` | Directory for LLM decision logs |
+| `--replay-log` | Path to decision log for replay mode |
+| `--clean-output` | Remove stale output before writing |
+
+### `abm ingest-data` - Data Download
+
+```bash
+abm ingest-data --country tanzania --output-dir data/processed
+```
+
+Downloads LSMS-ISA data (or generates synthetic fallback) and creates canonical Parquet tables.
+
+### `abm derive-targets` - Compute Targets
+
+```bash
+abm derive-targets --country tanzania --data-dir data/processed
+```
+
+Computes derived target variables (enterprise persistence, asset index, price exposure) for ABM input.
+
+### `abm validate-schema` - Output Verification
+
+```bash
+abm validate-schema outputs/tanzania/baseline
+```
+
+Verifies that output Parquet files conform to the `OutputRecord` schema.
+
+## Configuration Files
+
+Country-specific parameters are defined in YAML configuration files:
+
+**`config/tanzania.yaml`:**
+```yaml
+country: tanzania
+waves: [1, 2, 3, 4]
+wave_years: {1: 2008, 2: 2010, 3: 2012, 4: 2014}
+price_exposure_threshold: -0.1
+asset_threshold_percentile: 40
+stayer_threshold: 0.5
+```
+
+**`config/ethiopia.yaml`:**
+```yaml
+country: ethiopia
+waves: [1, 2, 3]
+wave_years: {1: 2011, 2: 2013, 3: 2015}
+price_exposure_threshold: -0.1
+asset_threshold_percentile: 40
+stayer_threshold: 0.5
+```
+
+No code changes are required to add new countries; only a new configuration file.
+
+## Outputs
+
+Each simulation run produces:
+
+| Output | Format | Content |
+|--------|--------|---------|
+| `household_outcomes.parquet` | Parquet (partitioned by wave) | Simulation results |
+| `manifest.json` | JSON | Reproducibility metadata (git commit, seed, parameters) |
+| `simulation.log` | Text | Execution log |
+| `decision_logs/*.jsonl` | JSON Lines | LLM decision audit trail (if LLM policy used) |
+
+## Makefile Targets
+
+For convenience, common workflows are wrapped in Makefile targets:
+
+```bash
+make setup              # Install Python dependencies
+make setup-r            # Restore R environment
+make test               # Run pytest (101 tests)
+make lint               # Code quality checks
+make run-toy            # Quick synthetic test
+make run-sim COUNTRY=tanzania
+make render-report      # Generate validation report
+```
+
+# Baseline, Simulation, and Scenarios
+
+## Baseline Scenario
+
+The **baseline scenario** represents no policy intervention:
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Policy | `none` (RulePolicy with default thresholds) | Default |
+| Price threshold | -0.1 (or calibrated from data) | Config/calibration |
+| Asset threshold | 0.0 (or median from data) | Config/calibration |
+| Exit threshold | -1.0 (or 10th percentile) | Config/calibration |
+| Seed | 42 | Default |
+
+**Initial Conditions:**
+
+- Agents initialized from wave 1 of `household_targets.parquet`
+- Enterprise status: from observed LSMS data
+- Assets, credit access, price exposure: from derived targets
+
+## Implemented Policy Scenarios
+
+Four policy types are implemented, each modifying RulePolicy thresholds:
+
+| Policy | Mechanism | Threshold Changes |
+|--------|-----------|-------------------|
+| `none` | No intervention | Default thresholds |
+| `credit_access` | Subsidized credit | Asset threshold +0.5 |
+| `price_support` | Price floor | Price threshold -0.2 |
+| `asset_transfer` | Targeted transfers | Asset threshold -0.5, exit threshold -2.0 |
+
+**Note:** These are stylized interventions for comparative analysis, not calibrated to specific real-world programs.
+
+## Scenario Comparison
+
+### Mechanism-Level Differences
+
+- **Baseline:** Enterprise entry triggered by adverse price shock + low assets
+- **Credit Access:** Relaxes asset constraint, allowing higher-asset households to enter
+- **Price Support:** Raises entry threshold, reducing entry under moderate shocks
+- **Asset Transfer:** Targets poorest households, prevents forced exit
+
+### Quantitative Comparison
+
+The validation report (`analysis/quarto/validation_report.qmd`) compares scenarios on:
+
+1. **Enterprise entry rate by wave**
+2. **Coefficient on price_exposure in fixed-effects regression**
+3. **Distribution of classification (stayer/coper/none)**
+
+Specific quantitative results depend on simulation seed and data inputs. Results should be interpreted as illustrative of mechanism differences rather than precise effect estimates.
+
+### Behavioral Patterns
+
+Observed patterns consistent with theory:
+
+- **Copers** show higher enterprise entry rates in shock waves (wave 2 for Tanzania)
+- **Stayers** maintain enterprise across waves regardless of price exposure
+- Asset-poor households show stronger price-enterprise correlation
+
+## CAS-Like Behaviors
+
+The model exhibits some behaviors associated with complex systems:
+
+| Behavior | Present | Evidence |
+|----------|---------|----------|
+| **Non-linearity** | Yes | Threshold-based entry creates discontinuous response |
+| **Path dependence** | Partial | Classification depends on history, but no dynamic state |
+| **Regime shifts** | No | No evidence of sudden aggregate transitions |
+| **Heterogeneous response** | Yes | Different household types respond differently to shocks |
+
+**Limitations:** The model does not exhibit strong emergence, feedback loops, or self-organization. Aggregate patterns are simple summations of individual behavior.
+
+# Data Analysis on Results
+
+## Stochastic Robustness Testing
+
+Multiple simulation runs with different random seeds are used to assess outcome stability. This corresponds to "Monte Carlo robustness checks" rather than formal uncertainty quantification.
+
+**Implementation:** Run `make run-sim` with different `--seed` values and compare outcomes.
+
+**Limitation:** The number of runs and specific seeds are not standardized. A formal robustness protocol would specify minimum run count and comparison metrics.
+
+## Regression-Based Validation
+
+Fixed-effects regressions compare simulated and observed data:
+
+**Primary Specification:**
+$$\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \alpha_i + \gamma_t + \varepsilon_{it}$$
+
+Implemented in `analysis/R/validation_helpers.R` using `fixest::feols()` with household and wave fixed effects. Standard errors are clustered at the household level.
+
+**Acceptance Criteria:**
+
+| Criterion | Threshold | Interpretation |
+|-----------|-----------|----------------|
+| Sign match | $\beta_1 < 0$ | Required for validation |
+| Magnitude | Within 1 SE of observed | Preferred but not required |
+| Significance | p < 0.05 | Conventional threshold |
+
+**Caveats:**
+
+- The p-value threshold is conventional but arbitrary; it does not provide definitive evidence of distributional similarity.
+- Comparing simulated and real data assumes structural comparability between the model and real-world processes; this assumption requires justification.
+
+## Distribution Tests
+
+**Kolmogorov-Smirnov Test:**
+
+Compares cumulative distribution functions of enterprise rates:
+
+$$D = \sup_x |F_{sim}(x) - F_{obs}(x)|$$
+
+Acceptance: p > 0.05 (cannot reject that distributions are identical).
+
+**Chi-Squared Test:**
+
+For categorical variables (enterprise status):
+
+$$\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}$$
+
+Acceptance: p > 0.05.
+
+**Limitations:**
+
+- KS test assumes continuous distributions; application to binary outcomes is imperfect.
+- Chi-squared test requires sufficient expected counts; small cells may violate assumptions.
+- Neither test proves distributions are identical, only that we cannot reject similarity.
+
+## Threshold Sensitivity Analysis
+
+Core conclusions are tested across multiple stayer classification thresholds:
+
+| Threshold | Stayer Definition | Tanzania Waves Required |
+|-----------|-------------------|-------------------------|
+| 33% | >33% enterprise waves | ≥2 of 4 waves |
+| 50% | >50% enterprise waves | ≥3 of 4 waves |
+| 67% | >67% enterprise waves | ≥3 of 4 waves |
+
+**Acceptance:** Sign stability across all thresholds; majority of results significant at p < 0.05.
+
+## Heat Maps and Response Surfaces
+
+**Status: Not Implemented**
+
+The current implementation does not include systematic parameter sweeps or response surface visualization. Policy comparison is limited to discrete scenarios rather than continuous parameter variation.
+
+# Strategy
+
+## Behavior Search
+
+**Status: Not Implemented**
+
+No formal optimization or genetic algorithm search over policy parameters has been conducted. The current implementation supports comparative analysis of pre-specified scenarios only.
+
+## Policy Comparison Framework
+
+Available policy scenarios can be compared on:
+
+1. **Enterprise entry rate:** Proportion of households entering enterprise
+2. **Classification distribution:** Relative proportions of stayer/coper/none
+3. **Coefficient match:** Alignment with observed price-enterprise correlation
+
+This is comparative ("which scenario better matches observations") rather than optimizing ("which policy maximizes welfare").
+
+## Limits of Strategic Inference
+
+**Critical caveats:**
+
+1. **No welfare function:** The model does not define household utility or social welfare; "better" policies cannot be identified without normative assumptions.
+
+2. **Partial policy representation:** Policy scenarios modify thresholds, not actual policy mechanisms (e.g., credit subsidy amount, price floor level).
+
+3. **No dynamic feedback:** Policies do not affect agent state beyond the direct threshold change; no general equilibrium effects.
+
+4. **Limited scenario space:** Only four scenarios implemented; the policy space is vastly larger.
+
+**Appropriate claims:** The model can identify which stylized policy scenario produces outcomes most consistent with observed patterns. It cannot recommend optimal policy design or quantify welfare impacts.
+
+# Conclusions
+
+## Summary of Implementation
+
+This ABM implements a computational model of household enterprise entry as a coping mechanism for agricultural price shocks. Key implemented features:
+
+- **Mesa 3 simulation framework** with household agents and wave-based scheduling
+- **Threshold-based decision policies** (RulePolicy) calibratable from data
+- **LLM-augmented decisions** (LLMPolicy) with constraint validation and logging
+- **ETL pipeline** for LSMS-ISA data (Tanzania, Ethiopia) with Parquet outputs
+- **R/Quarto validation** with fixed-effects regressions and distribution tests
+- **Reproducibility infrastructure** including centralized RNG, manifest tracking, and decision logs
+
+## What Worked
+
+1. **Core hypothesis replication:** The model produces simulated data where the sign on the price-enterprise correlation matches empirical findings ($\beta_1 < 0$).
+
+2. **Heterogeneity capture:** Asset-poor and credit-constrained households show stronger price-enterprise correlation, consistent with theory.
+
+3. **Classification validation:** Simulated stayer/coper proportions align with observed distributions within specified tolerance.
+
+4. **Reproducibility:** Identical seeds produce identical outputs; LLM decisions can be replayed deterministically.
+
+## What Did Not Work or Remains Incomplete
+
+1. **Emergence:** The model does not exhibit aggregate patterns beyond individual behavior summation.
+
+2. **Agent adaptation:** No learning or belief updating is implemented.
+
+3. **Policy optimization:** No systematic search over policy parameters.
+
+4. **General equilibrium:** Prices remain exogenous; no market-level feedback.
+
+5. **Parameter uncertainty:** Sensitivity analysis is manual rather than systematic.
+
+## Core ABM Insights
+
+Based on the implemented model and validation results:
+
+1. **Threshold mechanisms matter:** The price and asset thresholds that trigger enterprise entry significantly affect aggregate patterns. Data-calibrated thresholds improve alignment with observations.
+
+2. **Heterogeneity is essential:** A representative-agent model would miss the differential response of stayers vs. copers to price shocks.
+
+3. **Credit access mediates response:** The credit interaction term suggests that credit-constrained households have limited coping options.
+
+**Caveat:** These insights are based on simulation results and should be interpreted as hypotheses requiring further empirical validation.
+
+## Policy Relevance
+
+**Directional implications (not prescriptive):**
+
+- Policies that relax credit constraints may expand coping options for asset-poor households
+- Price stabilization policies may reduce enterprise entry by reducing shock magnitude
+- Targeted asset transfers may prevent forced enterprise exit among the poorest
+
+**Critical limitations:**
+
+- These implications assume the model correctly represents household decision-making
+- Real-world policy effects depend on implementation details not captured in the model
+- External validity is limited to Tanzania and Ethiopia LSMS-ISA data; generalization to other contexts is uncertain
+
+## External Validity Statement
+
+The model is calibrated and validated against:
+
+- **Tanzania:** LSMS-ISA National Panel Survey, 4 waves (2008-2014)
+- **Ethiopia:** LSMS-ISA Socioeconomic Survey, 3 waves (2011-2015)
+
+Generalization beyond these contexts (other countries, time periods, or data sources) requires additional validation. The model's parameters and behavioral rules may not transfer to settings with different institutional contexts, agricultural systems, or enterprise environments.
+
+# References and Appendix {.appendix}
+
+## Academic References
+
+The model is based on empirical findings from research on household enterprises and agricultural shocks in Sub-Saharan Africa. The specific source paper ("Booms, Busts, and Household Enterprise") provides the theoretical foundation.
+
+**Methodology references:**
+
+- Grimm, V., et al. "The ODD protocol for describing agent-based and other simulation models." *Ecological Modelling*, 2020.
+- Mesa: Agent-based modeling in Python (https://mesa.readthedocs.io/)
+
+## Software and Data References
+
+| Component | Version/Source |
+|-----------|----------------|
+| Python | 3.11+ |
+| Mesa | 3.x |
+| Pandas | 2.x |
+| Pydantic | 2.x |
+| R | 4.x |
+| fixest | R package for fixed effects |
+| Quarto | Document rendering |
+| LSMS-ISA | World Bank microdata |
+
+## External Model Consultations
+
+### Gemini 2.0 Flash (Sections 1-3 Methodology Review)
+
+**Purpose:** Review Introduction, Research Question, and ABM/CAS Justification for methodological correctness.
+
+**Key Feedback Incorporated:**
+
+1. Changed "validated against" to "calibrated using" to avoid overclaiming
+2. Added explicit justification for 50% stayer threshold
+3. Documented what CAS features are and are not implemented
+4. Added limitations on computational cost, parameter uncertainty, and oversimplification
+5. Clarified that agents have continuous variables but discrete decision-making
+
+### GPT-4o (Sections 8-10 Inference Review)
+
+**Purpose:** Red-team reproducibility claims, inference validity, and policy interpretation.
+
+**Key Feedback Incorporated:**
+
+1. Replaced "BehaviorSpace-style robustness" with "Monte Carlo robustness checks"
+2. Clarified p-value threshold interpretation (conventional, not definitive)
+3. Added caveats about structural comparability for simulation-to-real comparison
+4. Emphasized exploratory nature of findings
+5. Strengthened external validity limitations statement
+
+## Validation Contract Reference
+
+The validation contract (`docs/VALIDATION_CONTRACT.md`) specifies:
+
+- Primary estimand: enterprise_entry ~ price_exposure | household + wave FE
+- Secondary estimands: Asset and credit interaction terms
+- Classification validation: Stayer/coper proportions within 10pp
+- Threshold sensitivity: Stability across 33%, 50%, 67% thresholds
+
+**Review Status:** ACCEPTED (2026-01-13) by external reviewers.
+
+## Repository Artifacts
+
+| Artifact | Path | Purpose |
+|----------|------|---------|
+| Concept of Operations | `docs/CONOPS.md` | System architecture |
+| Validation Contract | `docs/VALIDATION_CONTRACT.md` | Estimands and acceptance criteria |
+| Architectural Decisions | `docs/DECISIONS.md` | Design choices and rationale |
+| Measurement Mapping | `docs/measurement_mapping.csv` | Variable definitions |
+| Threshold Justification | `docs/THRESHOLD_JUSTIFICATION.md` | Classification threshold rationale |
+
+## Appendix A: Code Excerpts
+
+### A.1 Policy Interface (base.py)
+
+```python
+class BasePolicy(ABC):
+    """Abstract base class for decision policies."""
+
+    @abstractmethod
+    def decide(self, state: HouseholdState) -> Action:
+        """Determine action given household state.
+
+        Args:
+            state: Current household state (frozen, immutable)
+
+        Returns:
+            Action enum: ENTER_ENTERPRISE, EXIT_ENTERPRISE, or NO_CHANGE
+        """
+        pass
+```
+
+### A.2 RulePolicy Entry Evaluation (rule.py)
+
+```python
+def _evaluate_entry(self, state: HouseholdState) -> Action:
+    """Evaluate enterprise entry decision."""
+    if state.enterprise_status == EnterpriseStatus.NO_ENTERPRISE:
+        adverse_shock = state.price_exposure < self.price_threshold
+        low_assets = state.assets < self.asset_threshold
+
+        if adverse_shock and low_assets:
+            return Action.ENTER_ENTERPRISE
+
+    return Action.NO_CHANGE
+```
+
+### A.3 Agent Step Method (household.py)
+
+```python
+def step(self):
+    """Execute one simulation step."""
+    prev_status = self.state.enterprise_status
+    self.state.action_taken = "NO_CHANGE"
+    self.state.policy_applied = 0
+    self.state.enterprise_entry = 0
+
+    if self._policy is not None:
+        household_state = self.get_household_state()
+        action = self._policy.decide(household_state)
+        self.state.policy_applied = 1
+    else:
+        action = Action.NO_CHANGE
+
+    self._apply_action(action)
+
+    if prev_status == 0 and self.state.enterprise_status == 1:
+        self.state.enterprise_entry = 1
+
+    self.state.wave = self.model.current_wave
+```
+
+### A.4 Calibration Function (model.py)
+
+```python
+def compute_calibration_thresholds(targets_df: pd.DataFrame) -> dict:
+    """Compute data-driven policy thresholds."""
+    negative_exposures = targets_df[
+        targets_df["price_exposure"] < 0
+    ]["price_exposure"]
+
+    return {
+        "price_threshold": negative_exposures.median(),
+        "asset_threshold": targets_df["asset_index"].median(),
+        "exit_asset_threshold": targets_df["asset_index"].quantile(0.10),
+    }
+```
+
+---
+
+*Document generated: 2026-01-13*
+
+*Repository: abm-enterprise-coping*
+
+*Git commit: See manifest.json in output directory*

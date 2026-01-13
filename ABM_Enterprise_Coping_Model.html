@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Michael [Author]">
+<meta name="dcterms.date" content="2026-01-13">
+
+<title>Enterprise Coping Under Agricultural Price Shocks: An Agent-Based Model</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="ABM_Enterprise_Coping_Model_files/libs/clipboard/clipboard.min.js"></script>
+<script src="ABM_Enterprise_Coping_Model_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="ABM_Enterprise_Coping_Model_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="ABM_Enterprise_Coping_Model_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="ABM_Enterprise_Coping_Model_files/libs/quarto-html/popper.min.js"></script>
+<script src="ABM_Enterprise_Coping_Model_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="ABM_Enterprise_Coping_Model_files/libs/quarto-html/anchor.min.js"></script>
+<link href="ABM_Enterprise_Coping_Model_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="ABM_Enterprise_Coping_Model_files/libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="ABM_Enterprise_Coping_Model_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="ABM_Enterprise_Coping_Model_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="ABM_Enterprise_Coping_Model_files/libs/bootstrap/bootstrap-e42c970279e2daa4e49069929080fb2e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a></li>
+  <li><a href="#research-question" id="toc-research-question" class="nav-link" data-scroll-target="#research-question"><span class="header-section-number">2</span> Research Question</a>
+  <ul class="collapse">
+  <li><a href="#problem-statement" id="toc-problem-statement" class="nav-link" data-scroll-target="#problem-statement"><span class="header-section-number">2.1</span> Problem Statement</a></li>
+  <li><a href="#classification-framework" id="toc-classification-framework" class="nav-link" data-scroll-target="#classification-framework"><span class="header-section-number">2.2</span> Classification Framework</a></li>
+  <li><a href="#primary-and-secondary-estimands" id="toc-primary-and-secondary-estimands" class="nav-link" data-scroll-target="#primary-and-secondary-estimands"><span class="header-section-number">2.3</span> Primary and Secondary Estimands</a></li>
+  <li><a href="#why-agent-based-modeling" id="toc-why-agent-based-modeling" class="nav-link" data-scroll-target="#why-agent-based-modeling"><span class="header-section-number">2.4</span> Why Agent-Based Modeling</a></li>
+  <li><a href="#on-complex-adaptive-systems-framing" id="toc-on-complex-adaptive-systems-framing" class="nav-link" data-scroll-target="#on-complex-adaptive-systems-framing"><span class="header-section-number">2.5</span> On Complex Adaptive Systems Framing</a></li>
+  </ul></li>
+  <li><a href="#diagram-model-architecture" id="toc-diagram-model-architecture" class="nav-link" data-scroll-target="#diagram-model-architecture"><span class="header-section-number">3</span> Diagram Model Architecture</a>
+  <ul class="collapse">
+  <li><a href="#concept-of-operations" id="toc-concept-of-operations" class="nav-link" data-scroll-target="#concept-of-operations"><span class="header-section-number">3.1</span> Concept of Operations</a></li>
+  <li><a href="#information-flow" id="toc-information-flow" class="nav-link" data-scroll-target="#information-flow"><span class="header-section-number">3.2</span> Information Flow</a></li>
+  <li><a href="#component-responsibilities" id="toc-component-responsibilities" class="nav-link" data-scroll-target="#component-responsibilities"><span class="header-section-number">3.3</span> Component Responsibilities</a></li>
+  </ul></li>
+  <li><a href="#oddd-framework" id="toc-oddd-framework" class="nav-link" data-scroll-target="#oddd-framework"><span class="header-section-number">4</span> ODD+D Framework</a>
+  <ul class="collapse">
+  <li><a href="#purpose" id="toc-purpose" class="nav-link" data-scroll-target="#purpose"><span class="header-section-number">4.1</span> Purpose</a></li>
+  <li><a href="#state-variables-and-scales" id="toc-state-variables-and-scales" class="nav-link" data-scroll-target="#state-variables-and-scales"><span class="header-section-number">4.2</span> State Variables and Scales</a>
+  <ul class="collapse">
+  <li><a href="#agent-level-state-householdagent" id="toc-agent-level-state-householdagent" class="nav-link" data-scroll-target="#agent-level-state-householdagent"><span class="header-section-number">4.2.1</span> Agent-Level State (HouseholdAgent)</a></li>
+  <li><a href="#model-level-state-enterprisecopingmodel" id="toc-model-level-state-enterprisecopingmodel" class="nav-link" data-scroll-target="#model-level-state-enterprisecopingmodel"><span class="header-section-number">4.2.2</span> Model-Level State (EnterpriseCopingModel)</a></li>
+  <li><a href="#scales" id="toc-scales" class="nav-link" data-scroll-target="#scales"><span class="header-section-number">4.2.3</span> Scales</a></li>
+  </ul></li>
+  <li><a href="#process-overview-and-scheduling" id="toc-process-overview-and-scheduling" class="nav-link" data-scroll-target="#process-overview-and-scheduling"><span class="header-section-number">4.3</span> Process Overview and Scheduling</a>
+  <ul class="collapse">
+  <li><a href="#simulation-loop" id="toc-simulation-loop" class="nav-link" data-scroll-target="#simulation-loop"><span class="header-section-number">4.3.1</span> Simulation Loop</a></li>
+  <li><a href="#scheduling-order" id="toc-scheduling-order" class="nav-link" data-scroll-target="#scheduling-order"><span class="header-section-number">4.3.2</span> Scheduling Order</a></li>
+  </ul></li>
+  <li><a href="#design-concepts" id="toc-design-concepts" class="nav-link" data-scroll-target="#design-concepts"><span class="header-section-number">4.4</span> Design Concepts</a>
+  <ul class="collapse">
+  <li><a href="#emergence" id="toc-emergence" class="nav-link" data-scroll-target="#emergence"><span class="header-section-number">4.4.1</span> Emergence</a></li>
+  <li><a href="#adaptation" id="toc-adaptation" class="nav-link" data-scroll-target="#adaptation"><span class="header-section-number">4.4.2</span> Adaptation</a></li>
+  <li><a href="#objectives" id="toc-objectives" class="nav-link" data-scroll-target="#objectives"><span class="header-section-number">4.4.3</span> Objectives</a></li>
+  <li><a href="#sensing" id="toc-sensing" class="nav-link" data-scroll-target="#sensing"><span class="header-section-number">4.4.4</span> Sensing</a></li>
+  <li><a href="#interaction" id="toc-interaction" class="nav-link" data-scroll-target="#interaction"><span class="header-section-number">4.4.5</span> Interaction</a></li>
+  <li><a href="#stochasticity" id="toc-stochasticity" class="nav-link" data-scroll-target="#stochasticity"><span class="header-section-number">4.4.6</span> Stochasticity</a></li>
+  <li><a href="#heterogeneity" id="toc-heterogeneity" class="nav-link" data-scroll-target="#heterogeneity"><span class="header-section-number">4.4.7</span> Heterogeneity</a></li>
+  </ul></li>
+  <li><a href="#details" id="toc-details" class="nav-link" data-scroll-target="#details"><span class="header-section-number">4.5</span> Details</a>
+  <ul class="collapse">
+  <li><a href="#initialization" id="toc-initialization" class="nav-link" data-scroll-target="#initialization"><span class="header-section-number">4.5.1</span> Initialization</a></li>
+  <li><a href="#submodels" id="toc-submodels" class="nav-link" data-scroll-target="#submodels"><span class="header-section-number">4.5.2</span> Submodels</a></li>
+  </ul></li>
+  <li><a href="#decision-layer" id="toc-decision-layer" class="nav-link" data-scroll-target="#decision-layer"><span class="header-section-number">4.6</span> Decision Layer</a>
+  <ul class="collapse">
+  <li><a href="#rulepolicy-deterministic-thresholds" id="toc-rulepolicy-deterministic-thresholds" class="nav-link" data-scroll-target="#rulepolicy-deterministic-thresholds"><span class="header-section-number">4.6.1</span> RulePolicy (Deterministic Thresholds)</a></li>
+  <li><a href="#llmpolicy-proposal-constraints-commit" id="toc-llmpolicy-proposal-constraints-commit" class="nav-link" data-scroll-target="#llmpolicy-proposal-constraints-commit"><span class="header-section-number">4.6.2</span> LLMPolicy (Proposal-Constraints-Commit)</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#coding" id="toc-coding" class="nav-link" data-scroll-target="#coding"><span class="header-section-number">5</span> Coding</a>
+  <ul class="collapse">
+  <li><a href="#module-structure" id="toc-module-structure" class="nav-link" data-scroll-target="#module-structure"><span class="header-section-number">5.1</span> Module Structure</a></li>
+  <li><a href="#high-level-pseudocode" id="toc-high-level-pseudocode" class="nav-link" data-scroll-target="#high-level-pseudocode"><span class="header-section-number">5.2</span> High-Level Pseudocode</a></li>
+  <li><a href="#key-design-patterns" id="toc-key-design-patterns" class="nav-link" data-scroll-target="#key-design-patterns"><span class="header-section-number">5.3</span> Key Design Patterns</a></li>
+  <li><a href="#code-references" id="toc-code-references" class="nav-link" data-scroll-target="#code-references"><span class="header-section-number">5.4</span> Code References</a></li>
+  </ul></li>
+  <li><a href="#the-model-user-interface" id="toc-the-model-user-interface" class="nav-link" data-scroll-target="#the-model-user-interface"><span class="header-section-number">6</span> The Model User Interface</a>
+  <ul class="collapse">
+  <li><a href="#command-line-interface" id="toc-command-line-interface" class="nav-link" data-scroll-target="#command-line-interface"><span class="header-section-number">6.1</span> Command-Line Interface</a></li>
+  <li><a href="#primary-commands" id="toc-primary-commands" class="nav-link" data-scroll-target="#primary-commands"><span class="header-section-number">6.2</span> Primary Commands</a>
+  <ul class="collapse">
+  <li><a href="#abm-run-toy---quick-test" id="toc-abm-run-toy---quick-test" class="nav-link" data-scroll-target="#abm-run-toy---quick-test"><span class="header-section-number">6.2.1</span> <code>abm run-toy</code> - Quick Test</a></li>
+  <li><a href="#abm-run-sim---full-simulation" id="toc-abm-run-sim---full-simulation" class="nav-link" data-scroll-target="#abm-run-sim---full-simulation"><span class="header-section-number">6.2.2</span> <code>abm run-sim</code> - Full Simulation</a></li>
+  <li><a href="#abm-ingest-data---data-download" id="toc-abm-ingest-data---data-download" class="nav-link" data-scroll-target="#abm-ingest-data---data-download"><span class="header-section-number">6.2.3</span> <code>abm ingest-data</code> - Data Download</a></li>
+  <li><a href="#abm-derive-targets---compute-targets" id="toc-abm-derive-targets---compute-targets" class="nav-link" data-scroll-target="#abm-derive-targets---compute-targets"><span class="header-section-number">6.2.4</span> <code>abm derive-targets</code> - Compute Targets</a></li>
+  <li><a href="#abm-validate-schema---output-verification" id="toc-abm-validate-schema---output-verification" class="nav-link" data-scroll-target="#abm-validate-schema---output-verification"><span class="header-section-number">6.2.5</span> <code>abm validate-schema</code> - Output Verification</a></li>
+  </ul></li>
+  <li><a href="#configuration-files" id="toc-configuration-files" class="nav-link" data-scroll-target="#configuration-files"><span class="header-section-number">6.3</span> Configuration Files</a></li>
+  <li><a href="#outputs" id="toc-outputs" class="nav-link" data-scroll-target="#outputs"><span class="header-section-number">6.4</span> Outputs</a></li>
+  <li><a href="#makefile-targets" id="toc-makefile-targets" class="nav-link" data-scroll-target="#makefile-targets"><span class="header-section-number">6.5</span> Makefile Targets</a></li>
+  </ul></li>
+  <li><a href="#baseline-simulation-and-scenarios" id="toc-baseline-simulation-and-scenarios" class="nav-link" data-scroll-target="#baseline-simulation-and-scenarios"><span class="header-section-number">7</span> Baseline, Simulation, and Scenarios</a>
+  <ul class="collapse">
+  <li><a href="#baseline-scenario" id="toc-baseline-scenario" class="nav-link" data-scroll-target="#baseline-scenario"><span class="header-section-number">7.1</span> Baseline Scenario</a></li>
+  <li><a href="#implemented-policy-scenarios" id="toc-implemented-policy-scenarios" class="nav-link" data-scroll-target="#implemented-policy-scenarios"><span class="header-section-number">7.2</span> Implemented Policy Scenarios</a></li>
+  <li><a href="#scenario-comparison" id="toc-scenario-comparison" class="nav-link" data-scroll-target="#scenario-comparison"><span class="header-section-number">7.3</span> Scenario Comparison</a>
+  <ul class="collapse">
+  <li><a href="#mechanism-level-differences" id="toc-mechanism-level-differences" class="nav-link" data-scroll-target="#mechanism-level-differences"><span class="header-section-number">7.3.1</span> Mechanism-Level Differences</a></li>
+  <li><a href="#quantitative-comparison" id="toc-quantitative-comparison" class="nav-link" data-scroll-target="#quantitative-comparison"><span class="header-section-number">7.3.2</span> Quantitative Comparison</a></li>
+  <li><a href="#behavioral-patterns" id="toc-behavioral-patterns" class="nav-link" data-scroll-target="#behavioral-patterns"><span class="header-section-number">7.3.3</span> Behavioral Patterns</a></li>
+  </ul></li>
+  <li><a href="#cas-like-behaviors" id="toc-cas-like-behaviors" class="nav-link" data-scroll-target="#cas-like-behaviors"><span class="header-section-number">7.4</span> CAS-Like Behaviors</a></li>
+  </ul></li>
+  <li><a href="#data-analysis-on-results" id="toc-data-analysis-on-results" class="nav-link" data-scroll-target="#data-analysis-on-results"><span class="header-section-number">8</span> Data Analysis on Results</a>
+  <ul class="collapse">
+  <li><a href="#stochastic-robustness-testing" id="toc-stochastic-robustness-testing" class="nav-link" data-scroll-target="#stochastic-robustness-testing"><span class="header-section-number">8.1</span> Stochastic Robustness Testing</a></li>
+  <li><a href="#regression-based-validation" id="toc-regression-based-validation" class="nav-link" data-scroll-target="#regression-based-validation"><span class="header-section-number">8.2</span> Regression-Based Validation</a></li>
+  <li><a href="#distribution-tests" id="toc-distribution-tests" class="nav-link" data-scroll-target="#distribution-tests"><span class="header-section-number">8.3</span> Distribution Tests</a></li>
+  <li><a href="#threshold-sensitivity-analysis" id="toc-threshold-sensitivity-analysis" class="nav-link" data-scroll-target="#threshold-sensitivity-analysis"><span class="header-section-number">8.4</span> Threshold Sensitivity Analysis</a></li>
+  <li><a href="#heat-maps-and-response-surfaces" id="toc-heat-maps-and-response-surfaces" class="nav-link" data-scroll-target="#heat-maps-and-response-surfaces"><span class="header-section-number">8.5</span> Heat Maps and Response Surfaces</a></li>
+  </ul></li>
+  <li><a href="#strategy" id="toc-strategy" class="nav-link" data-scroll-target="#strategy"><span class="header-section-number">9</span> Strategy</a>
+  <ul class="collapse">
+  <li><a href="#behavior-search" id="toc-behavior-search" class="nav-link" data-scroll-target="#behavior-search"><span class="header-section-number">9.1</span> Behavior Search</a></li>
+  <li><a href="#policy-comparison-framework" id="toc-policy-comparison-framework" class="nav-link" data-scroll-target="#policy-comparison-framework"><span class="header-section-number">9.2</span> Policy Comparison Framework</a></li>
+  <li><a href="#limits-of-strategic-inference" id="toc-limits-of-strategic-inference" class="nav-link" data-scroll-target="#limits-of-strategic-inference"><span class="header-section-number">9.3</span> Limits of Strategic Inference</a></li>
+  </ul></li>
+  <li><a href="#conclusions" id="toc-conclusions" class="nav-link" data-scroll-target="#conclusions"><span class="header-section-number">10</span> Conclusions</a>
+  <ul class="collapse">
+  <li><a href="#summary-of-implementation" id="toc-summary-of-implementation" class="nav-link" data-scroll-target="#summary-of-implementation"><span class="header-section-number">10.1</span> Summary of Implementation</a></li>
+  <li><a href="#what-worked" id="toc-what-worked" class="nav-link" data-scroll-target="#what-worked"><span class="header-section-number">10.2</span> What Worked</a></li>
+  <li><a href="#what-did-not-work-or-remains-incomplete" id="toc-what-did-not-work-or-remains-incomplete" class="nav-link" data-scroll-target="#what-did-not-work-or-remains-incomplete"><span class="header-section-number">10.3</span> What Did Not Work or Remains Incomplete</a></li>
+  <li><a href="#core-abm-insights" id="toc-core-abm-insights" class="nav-link" data-scroll-target="#core-abm-insights"><span class="header-section-number">10.4</span> Core ABM Insights</a></li>
+  <li><a href="#policy-relevance" id="toc-policy-relevance" class="nav-link" data-scroll-target="#policy-relevance"><span class="header-section-number">10.5</span> Policy Relevance</a></li>
+  <li><a href="#external-validity-statement" id="toc-external-validity-statement" class="nav-link" data-scroll-target="#external-validity-statement"><span class="header-section-number">10.6</span> External Validity Statement</a></li>
+  </ul></li>
+  
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Enterprise Coping Under Agricultural Price Shocks: An Agent-Based Model</h1>
+<p class="subtitle lead">Technical Documentation and Validation Report</p>
+</div>
+
+
+<div class="quarto-title-meta-author">
+  <div class="quarto-title-meta-heading">Author</div>
+  <div class="quarto-title-meta-heading">Affiliation</div>
+  
+    <div class="quarto-title-meta-contents">
+    <p class="author">Michael [Author] </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            Personal AI Infrastructure
+          </p>
+      </div>
+  </div>
+
+<div class="quarto-title-meta">
+
+      
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 13, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
+<p>This document presents an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks in Sub-Saharan Africa. The model operationalizes empirical findings from research on household enterprise dynamics and has been calibrated using LSMS-ISA harmonized panel data for Tanzania and Ethiopia.</p>
+<p><strong>Scope and Purpose:</strong> The model provides a computational laboratory for exploring how household-level characteristics (asset holdings, credit access) mediate the relationship between agricultural price volatility and non-farm enterprise participation. It is designed for comparative policy analysis rather than point prediction.</p>
+<p><strong>Document Structure:</strong> This document follows a modified ODD+D (Overview, Design concepts, Details + Decision) protocol for ABM documentation, adapted for computational social science applications. Each claim is traceable to code artifacts, simulation outputs, or validation reports within the repository.</p>
+<p><strong>Limitations Statement:</strong> This ABM is a simplified representation of household decision-making. Agents are necessarily abstractions of real-world households, and the model does not capture general equilibrium effects, market-level feedbacks, or optimal policy derivation. Results should be interpreted as exploratory findings requiring further empirical validation.</p>
+</section>
+<section id="research-question" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Research Question</h1>
+<section id="problem-statement" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="problem-statement"><span class="header-section-number">2.1</span> Problem Statement</h2>
+<p>The core hypothesis under investigation is that <strong>negative cash-crop price shocks induce enterprise entry as coping behavior</strong>, with heterogeneous responses by asset holdings and credit access.</p>
+<p>This hypothesis derives from empirical work on household enterprises in developing economies, which documents that:</p>
+<ol type="1">
+<li>Non-farm enterprises serve as income smoothing mechanisms during agricultural stress</li>
+<li>Enterprise entry rates increase following adverse price shocks</li>
+<li>Response heterogeneity exists by household wealth and financial access</li>
+</ol>
+</section>
+<section id="classification-framework" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="classification-framework"><span class="header-section-number">2.2</span> Classification Framework</h2>
+<p>Households are classified based on enterprise persistence across survey waves:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 36%">
+<col style="width: 27%">
+<col style="width: 36%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Classification</th>
+<th>Definition</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Stayer</strong></td>
+<td>Enterprise in &gt;50% of observed waves</td>
+<td>Persistent entrepreneur</td>
+</tr>
+<tr class="even">
+<td><strong>Coper</strong></td>
+<td>Enterprise in ≤50% of observed waves (but &gt;0)</td>
+<td>Intermittent/shock-responsive</td>
+</tr>
+<tr class="odd">
+<td><strong>None</strong></td>
+<td>No enterprise participation</td>
+<td>Non-entrepreneur</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Threshold Justification:</strong> The 50% threshold is an operationalization choice documented in <code>docs/THRESHOLD_JUSTIFICATION.md</code>. For Tanzania (4 waves), this requires enterprise participation in 3+ waves; for Ethiopia (3 waves), in 2+ waves. Sensitivity analysis across 33%, 50%, and 67% thresholds is conducted to assess robustness.</p>
+</section>
+<section id="primary-and-secondary-estimands" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="primary-and-secondary-estimands"><span class="header-section-number">2.3</span> Primary and Secondary Estimands</h2>
+<p><strong>Primary Estimand:</strong> <span class="math display">\[\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \alpha_i + \gamma_t + \varepsilon_{it}\]</span></p>
+<ul>
+<li>Target: <span class="math inline">\(\beta_1 &lt; 0\)</span> (adverse price shocks increase enterprise entry)</li>
+<li>Acceptance criterion: Sign match required; magnitude within 1 SE preferred</li>
+</ul>
+<p><strong>Secondary Estimands:</strong></p>
+<ol type="1">
+<li><strong>Asset Heterogeneity:</strong> <span class="math inline">\(\beta_2 &lt; 0\)</span> for interaction term (price_exposure × low_assets)</li>
+<li><strong>Credit Heterogeneity:</strong> <span class="math inline">\(\beta_2 &lt; 0\)</span> for interaction term (price_exposure × no_credit)</li>
+</ol>
+<p>These estimands are specified in <code>docs/VALIDATION_CONTRACT.md</code> and tested in the R validation pipeline.</p>
+</section>
+<section id="why-agent-based-modeling" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="why-agent-based-modeling"><span class="header-section-number">2.4</span> Why Agent-Based Modeling</h2>
+<p>An agent-based approach was selected because:</p>
+<ol type="1">
+<li><p><strong>Heterogeneity Representation:</strong> Household decisions depend on individual-level characteristics (assets, credit access, enterprise history) that vary across the population. The model initializes agents from empirical distributions in the LSMS-ISA data.</p></li>
+<li><p><strong>Discrete State Transitions:</strong> Enterprise entry/exit represents binary state changes that are more naturally modeled as discrete events than as continuous equilibrium outcomes. While agents also have continuous variables (asset levels), the core behavioral mechanism involves threshold-triggered transitions.</p></li>
+<li><p><strong>Counterfactual Analysis:</strong> The research question requires exploring “what-if” scenarios under different policy interventions. ABMs provide a framework for such counterfactual analysis, though with important caveats about validity.</p></li>
+<li><p><strong>Trajectory Tracking:</strong> The panel data structure permits calibrating agent decision rules and comparing simulated trajectories against observed household paths.</p></li>
+</ol>
+<p><strong>Contrast with Alternatives:</strong></p>
+<ul>
+<li><strong>Reduced-form regressions:</strong> Identify correlations but cannot simulate counterfactual policy scenarios. While regressions establish empirical regularities, they do not capture the mechanisms driving household behavior.</li>
+<li><strong>Structural estimation:</strong> Requires strong parametric assumptions about utility functions and market clearing that may not hold in Sub-Saharan African contexts.</li>
+</ul>
+<p><strong>What ABM Does NOT Provide:</strong></p>
+<ul>
+<li><strong>General equilibrium effects:</strong> Prices are exogenous; household decisions do not affect aggregate price levels. This is a significant simplification with implications for policy scenarios involving large-scale interventions.</li>
+<li><strong>Market-level feedbacks:</strong> No agent-to-agent interactions or market clearing mechanisms.</li>
+<li><strong>Optimal policy derivation:</strong> Only comparative analysis across pre-specified scenarios.</li>
+<li><strong>Parameter uncertainty quantification:</strong> The model has multiple parameters whose values are uncertain. Sensitivity analysis is conducted but does not fully characterize parameter uncertainty.</li>
+<li><strong>Real-world prediction:</strong> The model is an exploratory tool, not a forecasting system.</li>
+</ul>
+</section>
+<section id="on-complex-adaptive-systems-framing" class="level2" data-number="2.5">
+<h2 data-number="2.5" class="anchored" data-anchor-id="on-complex-adaptive-systems-framing"><span class="header-section-number">2.5</span> On Complex Adaptive Systems Framing</h2>
+<p>The ABM incorporates some but not all characteristics typically associated with Complex Adaptive Systems (CAS):</p>
+<p><strong>Implemented:</strong></p>
+<ul>
+<li><strong>Heterogeneity:</strong> Agents differ in initial endowments and respond differently to identical shocks.</li>
+<li><strong>Non-linearity:</strong> Threshold-based decision rules create discontinuous responses to price exposure.</li>
+<li><strong>Path dependence:</strong> Enterprise persistence classification depends on history of participation.</li>
+</ul>
+<p><strong>Not Implemented:</strong></p>
+<ul>
+<li><strong>Emergence:</strong> The current model does not exhibit emergent aggregate patterns not programmed into individual agents.</li>
+<li><strong>Agent learning/adaptation:</strong> Agents do not update their decision rules based on experience.</li>
+<li><strong>Agent-agent interaction:</strong> No social network effects or peer influences.</li>
+</ul>
+<p>This is a “simple ABM” rather than a full CAS model. The CAS framing is partial and should not be overclaimed.</p>
+</section>
+</section>
+<section id="diagram-model-architecture" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Diagram Model Architecture</h1>
+<section id="concept-of-operations" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="concept-of-operations"><span class="header-section-number">3.1</span> Concept of Operations</h2>
+<p>The system architecture follows a layered design documented in <code>docs/CONOPS.md</code>:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                    Orchestration Layer                       │
+│           (CLI interface, configuration loading)             │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    ETL Pipeline                              │
+│   ┌──────────┐    ┌───────────┐    ┌──────────────────┐    │
+│   │  Ingest  │ →  │ Canonical │ →  │ Derived Targets  │    │
+│   │  (LSMS)  │    │  Parquet  │    │ (ABM-ready)      │    │
+│   └──────────┘    └───────────┘    └──────────────────┘    │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    ABM Simulation                            │
+│   ┌──────────────┐    ┌────────────┐    ┌───────────────┐  │
+│   │ Mesa Model   │ →  │ Household  │ →  │ Policy        │  │
+│   │              │    │ Agents     │    │ Decision      │  │
+│   └──────────────┘    └────────────┘    └───────────────┘  │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    Validation Layer                          │
+│   ┌──────────────┐    ┌────────────┐    ┌───────────────┐  │
+│   │ R Analysis   │ →  │ Quarto     │ →  │ HTML Reports  │  │
+│   │ (fixest)     │    │ Rendering  │    │               │  │
+│   └──────────────┘    └────────────┘    └───────────────┘  │
+└─────────────────────────────────────────────────────────────┘</code></pre>
+</section>
+<section id="information-flow" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="information-flow"><span class="header-section-number">3.2</span> Information Flow</h2>
+<p><strong>Data Pipeline:</strong></p>
+<ol type="1">
+<li><strong>Ingest:</strong> LSMS-ISA microdata downloaded or synthetic data generated (<code>src/etl/ingest.py</code>)</li>
+<li><strong>Canonicalize:</strong> Raw data transformed to standardized Parquet tables (<code>src/etl/canonical.py</code>)</li>
+<li><strong>Derive:</strong> Target variables computed (enterprise persistence, asset index, price exposure) (<code>src/etl/derive.py</code>)</li>
+<li><strong>Simulate:</strong> Mesa model executes wave-by-wave with policy decisions (<code>src/abm_enterprise/model.py</code>)</li>
+<li><strong>Validate:</strong> R scripts run fixed-effects regressions and distribution tests (<code>analysis/R/validation_helpers.R</code>)</li>
+</ol>
+<p><strong>Key Data Artifacts:</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 34%">
+<col style="width: 34%">
+<col style="width: 31%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Artifact</th>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>household_targets.parquet</code></td>
+<td><code>data/processed/{country}/derived/</code></td>
+<td>ABM input (merged targets)</td>
+</tr>
+<tr class="even">
+<td><code>household_outcomes.parquet</code></td>
+<td><code>outputs/{country}/{scenario}/</code></td>
+<td>Simulation output</td>
+</tr>
+<tr class="odd">
+<td><code>manifest.json</code></td>
+<td><code>outputs/{country}/{scenario}/</code></td>
+<td>Reproducibility metadata</td>
+</tr>
+<tr class="even">
+<td><code>decisions_*.jsonl</code></td>
+<td><code>outputs/{country}/{scenario}/decision_logs/</code></td>
+<td>LLM decision audit trail</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="component-responsibilities" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="component-responsibilities"><span class="header-section-number">3.3</span> Component Responsibilities</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 30%">
+<col style="width: 25%">
+<col style="width: 44%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>File(s)</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>EnterpriseCopingModel</code></td>
+<td><code>src/abm_enterprise/model.py</code></td>
+<td>Orchestrate simulation, manage agents</td>
+</tr>
+<tr class="even">
+<td><code>HouseholdAgent</code></td>
+<td><code>src/abm_enterprise/agents/household.py</code></td>
+<td>State machine, decision requests</td>
+</tr>
+<tr class="odd">
+<td><code>BasePolicy</code></td>
+<td><code>src/abm_enterprise/policies/base.py</code></td>
+<td>Decision interface</td>
+</tr>
+<tr class="even">
+<td><code>RulePolicy</code></td>
+<td><code>src/abm_enterprise/policies/rule.py</code></td>
+<td>Threshold-based decisions</td>
+</tr>
+<tr class="odd">
+<td><code>LLMPolicy</code></td>
+<td><code>src/abm_enterprise/policies/llm.py</code></td>
+<td>LLM-augmented decisions</td>
+</tr>
+<tr class="even">
+<td><code>DecisionLogger</code></td>
+<td><code>src/abm_enterprise/policies/logging.py</code></td>
+<td>Audit trail for reproducibility</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="oddd-framework" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> ODD+D Framework</h1>
+<p>This section documents the model following the ODD+D protocol (Overview, Design concepts, Details + Decision layer).</p>
+<section id="purpose" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="purpose"><span class="header-section-number">4.1</span> Purpose</h2>
+<p>The model simulates household enterprise entry decisions under agricultural price shocks to:</p>
+<ol type="1">
+<li>Replicate empirical patterns observed in LSMS-ISA panel data</li>
+<li>Explore heterogeneous responses by asset level and credit access</li>
+<li>Compare outcomes across policy intervention scenarios</li>
+</ol>
+<p>The model is <strong>not</strong> designed for:</p>
+<ul>
+<li>Point prediction of enterprise rates</li>
+<li>Optimal policy derivation</li>
+<li>General equilibrium analysis</li>
+</ul>
+</section>
+<section id="state-variables-and-scales" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="state-variables-and-scales"><span class="header-section-number">4.2</span> State Variables and Scales</h2>
+<section id="agent-level-state-householdagent" class="level3" data-number="4.2.1">
+<h3 data-number="4.2.1" class="anchored" data-anchor-id="agent-level-state-householdagent"><span class="header-section-number">4.2.1</span> Agent-Level State (HouseholdAgent)</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 27%">
+<col style="width: 16%">
+<col style="width: 19%">
+<col style="width: 36%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Type</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>household_id</code></td>
+<td>str</td>
+<td>-</td>
+<td>Unique identifier</td>
+</tr>
+<tr class="even">
+<td><code>wave</code></td>
+<td>int</td>
+<td>1-4 (TZ), 1-3 (ET)</td>
+<td>Current survey wave</td>
+</tr>
+<tr class="odd">
+<td><code>assets</code></td>
+<td>float</td>
+<td>~[-2, +2]</td>
+<td>Standardized asset index</td>
+</tr>
+<tr class="even">
+<td><code>credit_access</code></td>
+<td>int</td>
+<td>{0, 1}</td>
+<td>Formal credit access</td>
+</tr>
+<tr class="odd">
+<td><code>enterprise_status</code></td>
+<td>int</td>
+<td>{0, 1}</td>
+<td>Current enterprise participation</td>
+</tr>
+<tr class="even">
+<td><code>enterprise_entry</code></td>
+<td>int</td>
+<td>{0, 1}</td>
+<td>Entry this wave (0→1 transition)</td>
+</tr>
+<tr class="odd">
+<td><code>enterprise_persistence</code></td>
+<td>float</td>
+<td>[0, 1]</td>
+<td>Fraction of waves with enterprise</td>
+</tr>
+<tr class="even">
+<td><code>price_exposure</code></td>
+<td>float</td>
+<td>~[-0.5, +0.5]</td>
+<td>Price shock exposure</td>
+</tr>
+<tr class="odd">
+<td><code>classification</code></td>
+<td>str</td>
+<td>{stayer, coper, none}</td>
+<td>Household type</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="model-level-state-enterprisecopingmodel" class="level3" data-number="4.2.2">
+<h3 data-number="4.2.2" class="anchored" data-anchor-id="model-level-state-enterprisecopingmodel"><span class="header-section-number">4.2.2</span> Model-Level State (EnterpriseCopingModel)</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>config</code></td>
+<td>SimulationConfig</td>
+<td>Simulation parameters</td>
+</tr>
+<tr class="even">
+<td><code>current_wave</code></td>
+<td>int</td>
+<td>Current simulation step</td>
+</tr>
+<tr class="odd">
+<td><code>household_data</code></td>
+<td>DataFrame</td>
+<td>Panel data for all waves</td>
+</tr>
+<tr class="even">
+<td><code>outcomes</code></td>
+<td>list[dict]</td>
+<td>Collected output records</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="scales" class="level3" data-number="4.2.3">
+<h3 data-number="4.2.3" class="anchored" data-anchor-id="scales"><span class="header-section-number">4.2.3</span> Scales</h3>
+<ul>
+<li><strong>Temporal:</strong> Discrete waves (2-3 year intervals between LSMS rounds)</li>
+<li><strong>Spatial:</strong> Not explicitly modeled; region included as control variable</li>
+<li><strong>Population:</strong> 500-1000 households per country (full sample varies)</li>
+</ul>
+</section>
+</section>
+<section id="process-overview-and-scheduling" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="process-overview-and-scheduling"><span class="header-section-number">4.3</span> Process Overview and Scheduling</h2>
+<section id="simulation-loop" class="level3" data-number="4.3.1">
+<h3 data-number="4.3.1" class="anchored" data-anchor-id="simulation-loop"><span class="header-section-number">4.3.1</span> Simulation Loop</h3>
+<pre><code>INITIALIZE:
+  Load configuration from YAML
+  Load/generate household panel data
+  Create agents from wave 1 data
+  Assign policy to all agents
+
+FOR wave IN 1..num_waves:
+  FOR each agent:
+    Update state from wave data (assets, credit, price_exposure)
+    Request decision from policy: decide(HouseholdState) → Action
+    Apply action: update enterprise_status
+    Detect entry: if prev_status=0 and status=1 → enterprise_entry=1
+  END FOR
+  Collect outcomes for all agents
+  Increment wave
+END FOR
+
+FINALIZE:
+  Export outcomes to Parquet
+  Write manifest.json with provenance</code></pre>
+</section>
+<section id="scheduling-order" class="level3" data-number="4.3.2">
+<h3 data-number="4.3.2" class="anchored" data-anchor-id="scheduling-order"><span class="header-section-number">4.3.2</span> Scheduling Order</h3>
+<ul>
+<li><strong>Within-wave:</strong> Agents process sequentially (order does not affect outcomes since no agent-agent interaction)</li>
+<li><strong>Across-waves:</strong> Waves process in chronological order</li>
+</ul>
+</section>
+</section>
+<section id="design-concepts" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="design-concepts"><span class="header-section-number">4.4</span> Design Concepts</h2>
+<section id="emergence" class="level3" data-number="4.4.1">
+<h3 data-number="4.4.1" class="anchored" data-anchor-id="emergence"><span class="header-section-number">4.4.1</span> Emergence</h3>
+<p><strong>Status: Minimal</strong></p>
+<p>The model does not exhibit strong emergent behavior. Aggregate enterprise rates are the sum of individual decisions without feedback loops or nonlinear interactions. This is a limitation of the current design.</p>
+</section>
+<section id="adaptation" class="level3" data-number="4.4.2">
+<h3 data-number="4.4.2" class="anchored" data-anchor-id="adaptation"><span class="header-section-number">4.4.2</span> Adaptation</h3>
+<p><strong>Status: Not Implemented</strong></p>
+<p>Agents do not learn or adapt decision rules based on experience. The <code>AdaptiveRulePolicy</code> adjusts thresholds by wave number as a modeling choice, not as agent learning.</p>
+</section>
+<section id="objectives" class="level3" data-number="4.4.3">
+<h3 data-number="4.4.3" class="anchored" data-anchor-id="objectives"><span class="header-section-number">4.4.3</span> Objectives</h3>
+<p>Agents implicitly seek to maintain welfare through income smoothing. Enterprise entry is modeled as a coping response to price shocks, not as utility maximization. This is a behavioral (descriptive) rather than normative model.</p>
+</section>
+<section id="sensing" class="level3" data-number="4.4.4">
+<h3 data-number="4.4.4" class="anchored" data-anchor-id="sensing"><span class="header-section-number">4.4.4</span> Sensing</h3>
+<p>Agents observe:</p>
+<ul>
+<li>Their own asset level (perfectly)</li>
+<li>Their own credit access status (perfectly)</li>
+<li>Their own price exposure (perfectly)</li>
+<li>Their current enterprise status (perfectly)</li>
+</ul>
+<p>Agents do not observe other agents’ states.</p>
+</section>
+<section id="interaction" class="level3" data-number="4.4.5">
+<h3 data-number="4.4.5" class="anchored" data-anchor-id="interaction"><span class="header-section-number">4.4.5</span> Interaction</h3>
+<p><strong>Status: Not Implemented</strong></p>
+<p>No direct agent-agent interaction. Households make independent decisions.</p>
+</section>
+<section id="stochasticity" class="level3" data-number="4.4.6">
+<h3 data-number="4.4.6" class="anchored" data-anchor-id="stochasticity"><span class="header-section-number">4.4.6</span> Stochasticity</h3>
+<ul>
+<li><strong>Initialization:</strong> Synthetic data generation uses random draws from specified distributions</li>
+<li><strong>Decision-making:</strong> <code>RandomPolicy</code> available for baseline comparison; core <code>RulePolicy</code> is deterministic</li>
+<li><strong>Reproducibility:</strong> Centralized RNG via <code>utils/rng.py</code> with seed recorded in manifest</li>
+</ul>
+</section>
+<section id="heterogeneity" class="level3" data-number="4.4.7">
+<h3 data-number="4.4.7" class="anchored" data-anchor-id="heterogeneity"><span class="header-section-number">4.4.7</span> Heterogeneity</h3>
+<p>Agents differ in:</p>
+<ul>
+<li>Initial asset endowments (from data)</li>
+<li>Credit access (from data)</li>
+<li>Enterprise persistence (from data)</li>
+<li>Classification (derived from persistence)</li>
+</ul>
+<p>Policy response depends on these characteristics, creating heterogeneous outcomes.</p>
+</section>
+</section>
+<section id="details" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="details"><span class="header-section-number">4.5</span> Details</h2>
+<section id="initialization" class="level3" data-number="4.5.1">
+<h3 data-number="4.5.1" class="anchored" data-anchor-id="initialization"><span class="header-section-number">4.5.1</span> Initialization</h3>
+<p><strong>From Real Data (Tanzania/Ethiopia):</strong></p>
+<ol type="1">
+<li>Load <code>household_targets.parquet</code> from derived targets</li>
+<li>Extract wave 1 observations</li>
+<li>Create <code>HouseholdAgent</code> for each household with initial state</li>
+<li>Assign classification based on <code>enterprise_persistence</code></li>
+</ol>
+<p><strong>From Synthetic Data (Toy Mode):</strong></p>
+<ol type="1">
+<li>Generate <code>n</code> households with:
+<ul>
+<li>Assets: log-normal distribution, standardized</li>
+<li>Credit: logistic probability based on assets</li>
+<li>Enterprise: logistic probability based on assets + credit</li>
+<li>Price exposure: N(0, 0.15) with wave-specific systematic shocks</li>
+</ul></li>
+<li>Create balanced panel (all households × all waves)</li>
+</ol>
+</section>
+<section id="submodels" class="level3" data-number="4.5.2">
+<h3 data-number="4.5.2" class="anchored" data-anchor-id="submodels"><span class="header-section-number">4.5.2</span> Submodels</h3>
+<p><strong>Price Exposure Calculation:</strong></p>
+<p><span class="math display">\[\text{price\_exposure} = \sum_{c \in \text{crops}} \text{area\_share}_c \times \text{price\_change}_c\]</span></p>
+<p>Computed in <code>src/etl/derive.py</code> from crop areas and price series.</p>
+<p><strong>Asset Index:</strong></p>
+<p>First principal component of household durables, livestock, and land. Standardized to mean=0, SD=1.</p>
+<p><strong>Classification:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> enterprise_persistence <span class="op">&gt;</span> <span class="fl">0.5</span>:</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"stayer"</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> enterprise_persistence <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"coper"</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"none"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="decision-layer" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="decision-layer"><span class="header-section-number">4.6</span> Decision Layer</h2>
+<p>The decision layer is the core behavioral module determining enterprise entry/exit. Two policy implementations are available:</p>
+<section id="rulepolicy-deterministic-thresholds" class="level3" data-number="4.6.1">
+<h3 data-number="4.6.1" class="anchored" data-anchor-id="rulepolicy-deterministic-thresholds"><span class="header-section-number">4.6.1</span> RulePolicy (Deterministic Thresholds)</h3>
+<p><strong>Entry Logic:</strong></p>
+<pre><code>IF enterprise_status = 0 AND
+   price_exposure &lt; price_threshold AND
+   assets &lt; asset_threshold
+THEN action = ENTER_ENTERPRISE
+ELSE action = NO_CHANGE</code></pre>
+<p><strong>Exit Logic:</strong></p>
+<pre><code>IF enterprise_status = 1 AND
+   assets &lt; exit_asset_threshold AND
+   (credit_required_for_stability → credit_access = 0)
+THEN action = EXIT_ENTERPRISE
+ELSE action = NO_CHANGE</code></pre>
+<p><strong>Default Parameters:</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Parameter</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>price_threshold</code></td>
+<td>-0.1</td>
+<td>10% price decline triggers response</td>
+</tr>
+<tr class="even">
+<td><code>asset_threshold</code></td>
+<td>0.0</td>
+<td>Below-median assets</td>
+</tr>
+<tr class="odd">
+<td><code>exit_asset_threshold</code></td>
+<td>-1.0</td>
+<td>Severe asset poverty</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CalibratedRulePolicy:</strong> Computes thresholds from data distributions using <code>compute_calibration_thresholds()</code>.</p>
+</section>
+<section id="llmpolicy-proposal-constraints-commit" class="level3" data-number="4.6.2">
+<h3 data-number="4.6.2" class="anchored" data-anchor-id="llmpolicy-proposal-constraints-commit"><span class="header-section-number">4.6.2</span> LLMPolicy (Proposal-Constraints-Commit)</h3>
+<p>For experimental LLM-augmented decision-making:</p>
+<pre><code>[Stage 1: PROPOSAL]
+  Build prompt from HouseholdState
+  Call LLM provider (Stub/Claude/OpenAI)
+  Parse proposed action from response
+
+[Stage 2: CONSTRAINTS]
+  Validate action against constraint set:
+  - NoEntryIfAlreadyInEnterprise
+  - NoExitIfNotInEnterprise
+  - MinimumAssetsConstraint (threshold: -0.5)
+  - CreditRequiredConstraint (for low-asset entry)
+
+[Stage 3: COMMIT]
+  If constraints pass: apply proposed action
+  If constraints fail: apply fallback (NO_CHANGE)
+  Log decision with state hash for reproducibility</code></pre>
+<p><strong>Constraint Implementations:</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 42%">
+<col style="width: 25%">
+<col style="width: 32%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Constraint</th>
+<th>Logic</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>MinimumAssetsConstraint</code></td>
+<td>Entry requires assets ≥ -0.5</td>
+<td>Prevent unrealistic entry</td>
+</tr>
+<tr class="even">
+<td><code>CreditRequiredConstraint</code></td>
+<td>Low-asset entry requires credit</td>
+<td>Financing requirement</td>
+</tr>
+<tr class="odd">
+<td><code>NoEntryIfAlreadyInEnterprise</code></td>
+<td>Cannot enter if status=1</td>
+<td>State consistency</td>
+</tr>
+<tr class="even">
+<td><code>NoExitIfNotInEnterprise</code></td>
+<td>Cannot exit if status=0</td>
+<td>State consistency</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Providers:</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Provider</th>
+<th>Purpose</th>
+<th>Deterministic</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>StubProvider</code></td>
+<td>Rule-based baseline</td>
+<td>Yes</td>
+</tr>
+<tr class="even">
+<td><code>ReplayProvider</code></td>
+<td>Reproduce logged decisions</td>
+<td>Yes</td>
+</tr>
+<tr class="odd">
+<td><code>ClaudeProvider</code></td>
+<td>Anthropic Claude API</td>
+<td>No (but temp=0)</td>
+</tr>
+<tr class="even">
+<td><code>OpenAIProvider</code></td>
+<td>OpenAI GPT API</td>
+<td>No (but temp=0)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decision Logging:</strong></p>
+<p>All LLM decisions logged to JSONL with: - Input state + state hash - Prompt text - Raw LLM response - Constraint validation result - Final action applied - Latency metrics</p>
+<p>This enables deterministic replay and audit of LLM decision-making.</p>
+</section>
+</section>
+</section>
+<section id="coding" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Coding</h1>
+<section id="module-structure" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="module-structure"><span class="header-section-number">5.1</span> Module Structure</h2>
+<p>The codebase follows a layered architecture:</p>
+<pre><code>src/
+├── abm_enterprise/           # Core ABM package
+│   ├── model.py              # Mesa 3 model class (11.8 KB)
+│   ├── cli.py                # Typer CLI (23.4 KB)
+│   ├── outputs.py            # Output handling (6.0 KB)
+│   ├── agents/
+│   │   └── household.py      # Agent implementation (11.2 KB)
+│   ├── policies/
+│   │   ├── base.py           # Abstract interface (3.3 KB)
+│   │   ├── rule.py           # Rule-based policies (14.4 KB)
+│   │   ├── llm.py            # LLM policies (10.8 KB)
+│   │   ├── providers.py      # LLM backends (14.7 KB)
+│   │   ├── constraints.py    # Feasibility checks (7.2 KB)
+│   │   └── logging.py        # Decision logging (9.3 KB)
+│   ├── data/
+│   │   ├── schemas.py        # Pydantic schemas (8.0 KB)
+│   │   └── synthetic.py      # Synthetic generation (5.6 KB)
+│   └── utils/
+│       ├── rng.py            # Centralized RNG (2.8 KB)
+│       ├── manifest.py       # Provenance tracking (4.5 KB)
+│       └── logging.py        # Structured logging (4.7 KB)
+└── etl/                      # Data pipeline
+    ├── ingest.py             # Data download (16.2 KB)
+    ├── canonical.py          # Standardization (12.1 KB)
+    ├── derive.py             # Target computation (14.5 KB)
+    └── schemas.py            # ETL schemas (7.1 KB)</code></pre>
+</section>
+<section id="high-level-pseudocode" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="high-level-pseudocode"><span class="header-section-number">5.2</span> High-Level Pseudocode</h2>
+<p>The simulation flow aligns with the ConOps:</p>
+<pre><code># Model Initialization (model.py)
+class EnterpriseCopingModel(mesa.Model):
+    def __init__(config, household_data, policy):
+        set_seed(config.seed)
+        self.agents = create_agents(household_data.wave_1)
+        for agent in agents:
+            agent.policy = policy
+
+    def step():
+        for agent in agents:
+            wave_data = household_data[current_wave]
+            agent.update_state(wave_data)
+            agent.step()  # Request policy decision
+        collect_outcomes()
+        current_wave += 1
+
+    def run():
+        for wave in 1..num_waves:
+            step()
+
+# Agent Step (agents/household.py)
+class HouseholdAgent(mesa.Agent):
+    def step():
+        prev_status = enterprise_status
+        state = get_household_state()
+        action = policy.decide(state)
+        apply_action(action)
+        if prev_status == 0 and enterprise_status == 1:
+            enterprise_entry = 1
+
+# Policy Decision (policies/rule.py)
+class RulePolicy(BasePolicy):
+    def decide(state):
+        if state.enterprise_status == NO_ENTERPRISE:
+            if state.price_exposure &lt; price_threshold:
+                if state.assets &lt; asset_threshold:
+                    return ENTER_ENTERPRISE
+        return NO_CHANGE</code></pre>
+</section>
+<section id="key-design-patterns" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="key-design-patterns"><span class="header-section-number">5.3</span> Key Design Patterns</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 26%">
+<col style="width: 47%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Pattern</th>
+<th>Implementation</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Strategy</td>
+<td><code>BasePolicy</code> → <code>RulePolicy</code>, <code>LLMPolicy</code></td>
+<td>Pluggable decision logic</td>
+</tr>
+<tr class="even">
+<td>Factory</td>
+<td><code>LLMPolicyFactory.create_*()</code></td>
+<td>Simplify policy instantiation</td>
+</tr>
+<tr class="odd">
+<td>Composite</td>
+<td><code>CompositeConstraint</code></td>
+<td>Combine multiple constraints</td>
+</tr>
+<tr class="even">
+<td>Adapter</td>
+<td><code>LLMProvider</code> subclasses</td>
+<td>Uniform interface to LLM APIs</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="code-references" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="code-references"><span class="header-section-number">5.4</span> Code References</h2>
+<p>Representative implementations are documented in Appendix A. Key files:</p>
+<ul>
+<li>Decision interface: <code>src/abm_enterprise/policies/base.py:43-53</code></li>
+<li>Entry evaluation: <code>src/abm_enterprise/policies/rule.py:73-91</code></li>
+<li>Agent state machine: <code>src/abm_enterprise/agents/household.py:179-212</code></li>
+<li>Calibration: <code>src/abm_enterprise/model.py:compute_calibration_thresholds()</code></li>
+</ul>
+</section>
+</section>
+<section id="the-model-user-interface" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> The Model User Interface</h1>
+<section id="command-line-interface" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="command-line-interface"><span class="header-section-number">6.1</span> Command-Line Interface</h2>
+<p>The model is executed via a Typer-based CLI (<code>abm</code> command). No graphical user interface is provided.</p>
+<p><strong>Rationale for CLI-only design:</strong></p>
+<ol type="1">
+<li>Target users are researchers comfortable with command-line tools</li>
+<li>CLI enables scripting, automation, and reproducible workflows</li>
+<li>GUI would add complexity without proportionate benefit for this use case</li>
+</ol>
+</section>
+<section id="primary-commands" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="primary-commands"><span class="header-section-number">6.2</span> Primary Commands</h2>
+<section id="abm-run-toy---quick-test" class="level3" data-number="6.2.1">
+<h3 data-number="6.2.1" class="anchored" data-anchor-id="abm-run-toy---quick-test"><span class="header-section-number">6.2.1</span> <code>abm run-toy</code> - Quick Test</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">abm</span> run-toy <span class="at">--seed</span> 42 <span class="at">--households</span> 100 <span class="at">--waves</span> 4 <span class="at">--output-dir</span> outputs/toy</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Generates synthetic data and runs a rapid test simulation. Useful for development and pipeline verification.</p>
+</section>
+<section id="abm-run-sim---full-simulation" class="level3" data-number="6.2.2">
+<h3 data-number="6.2.2" class="anchored" data-anchor-id="abm-run-sim---full-simulation"><span class="header-section-number">6.2.2</span> <code>abm run-sim</code> - Full Simulation</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">abm</span> run-sim tanzania <span class="dt">\</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--scenario</span> baseline <span class="dt">\</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--policy</span> none <span class="dt">\</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--data-dir</span> data/processed <span class="dt">\</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--output-dir</span> outputs <span class="dt">\</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--calibrate</span> <span class="dt">\</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--seed</span> 42</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Runs simulation with real or derived data. Key options:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 38%">
+<col style="width: 61%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>--scenario</code></td>
+<td>Scenario name (for output organization)</td>
+</tr>
+<tr class="even">
+<td><code>--policy</code></td>
+<td>Policy type: none, credit_access, price_support, asset_transfer, calibrated, llm_stub</td>
+</tr>
+<tr class="odd">
+<td><code>--calibrate</code></td>
+<td>Auto-compute thresholds from data</td>
+</tr>
+<tr class="even">
+<td><code>--decision-log-dir</code></td>
+<td>Directory for LLM decision logs</td>
+</tr>
+<tr class="odd">
+<td><code>--replay-log</code></td>
+<td>Path to decision log for replay mode</td>
+</tr>
+<tr class="even">
+<td><code>--clean-output</code></td>
+<td>Remove stale output before writing</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="abm-ingest-data---data-download" class="level3" data-number="6.2.3">
+<h3 data-number="6.2.3" class="anchored" data-anchor-id="abm-ingest-data---data-download"><span class="header-section-number">6.2.3</span> <code>abm ingest-data</code> - Data Download</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">abm</span> ingest-data <span class="at">--country</span> tanzania <span class="at">--output-dir</span> data/processed</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Downloads LSMS-ISA data (or generates synthetic fallback) and creates canonical Parquet tables.</p>
+</section>
+<section id="abm-derive-targets---compute-targets" class="level3" data-number="6.2.4">
+<h3 data-number="6.2.4" class="anchored" data-anchor-id="abm-derive-targets---compute-targets"><span class="header-section-number">6.2.4</span> <code>abm derive-targets</code> - Compute Targets</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">abm</span> derive-targets <span class="at">--country</span> tanzania <span class="at">--data-dir</span> data/processed</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Computes derived target variables (enterprise persistence, asset index, price exposure) for ABM input.</p>
+</section>
+<section id="abm-validate-schema---output-verification" class="level3" data-number="6.2.5">
+<h3 data-number="6.2.5" class="anchored" data-anchor-id="abm-validate-schema---output-verification"><span class="header-section-number">6.2.5</span> <code>abm validate-schema</code> - Output Verification</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">abm</span> validate-schema outputs/tanzania/baseline</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Verifies that output Parquet files conform to the <code>OutputRecord</code> schema.</p>
+</section>
+</section>
+<section id="configuration-files" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="configuration-files"><span class="header-section-number">6.3</span> Configuration Files</h2>
+<p>Country-specific parameters are defined in YAML configuration files:</p>
+<p><strong><code>config/tanzania.yaml</code>:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">country</span><span class="kw">:</span><span class="at"> tanzania</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">waves</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">1</span><span class="kw">,</span><span class="at"> </span><span class="dv">2</span><span class="kw">,</span><span class="at"> </span><span class="dv">3</span><span class="kw">,</span><span class="at"> </span><span class="dv">4</span><span class="kw">]</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">wave_years</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">1</span><span class="kw">:</span><span class="at"> </span><span class="dv">2008</span><span class="kw">,</span><span class="at"> </span><span class="fu">2</span><span class="kw">:</span><span class="at"> </span><span class="dv">2010</span><span class="kw">,</span><span class="at"> </span><span class="fu">3</span><span class="kw">:</span><span class="at"> </span><span class="dv">2012</span><span class="kw">,</span><span class="at"> </span><span class="fu">4</span><span class="kw">:</span><span class="at"> </span><span class="dv">2014</span><span class="kw">}</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="fu">price_exposure_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.1</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="fu">asset_threshold_percentile</span><span class="kw">:</span><span class="at"> </span><span class="dv">40</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="fu">stayer_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong><code>config/ethiopia.yaml</code>:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">country</span><span class="kw">:</span><span class="at"> ethiopia</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">waves</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">1</span><span class="kw">,</span><span class="at"> </span><span class="dv">2</span><span class="kw">,</span><span class="at"> </span><span class="dv">3</span><span class="kw">]</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">wave_years</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">1</span><span class="kw">:</span><span class="at"> </span><span class="dv">2011</span><span class="kw">,</span><span class="at"> </span><span class="fu">2</span><span class="kw">:</span><span class="at"> </span><span class="dv">2013</span><span class="kw">,</span><span class="at"> </span><span class="fu">3</span><span class="kw">:</span><span class="at"> </span><span class="dv">2015</span><span class="kw">}</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">price_exposure_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.1</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="fu">asset_threshold_percentile</span><span class="kw">:</span><span class="at"> </span><span class="dv">40</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="fu">stayer_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>No code changes are required to add new countries; only a new configuration file.</p>
+</section>
+<section id="outputs" class="level2" data-number="6.4">
+<h2 data-number="6.4" class="anchored" data-anchor-id="outputs"><span class="header-section-number">6.4</span> Outputs</h2>
+<p>Each simulation run produces:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 32%">
+<col style="width: 32%">
+<col style="width: 36%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Output</th>
+<th>Format</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>household_outcomes.parquet</code></td>
+<td>Parquet (partitioned by wave)</td>
+<td>Simulation results</td>
+</tr>
+<tr class="even">
+<td><code>manifest.json</code></td>
+<td>JSON</td>
+<td>Reproducibility metadata (git commit, seed, parameters)</td>
+</tr>
+<tr class="odd">
+<td><code>simulation.log</code></td>
+<td>Text</td>
+<td>Execution log</td>
+</tr>
+<tr class="even">
+<td><code>decision_logs/*.jsonl</code></td>
+<td>JSON Lines</td>
+<td>LLM decision audit trail (if LLM policy used)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="makefile-targets" class="level2" data-number="6.5">
+<h2 data-number="6.5" class="anchored" data-anchor-id="makefile-targets"><span class="header-section-number">6.5</span> Makefile Targets</h2>
+<p>For convenience, common workflows are wrapped in Makefile targets:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> setup              <span class="co"># Install Python dependencies</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> setup-r            <span class="co"># Restore R environment</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> test               <span class="co"># Run pytest (101 tests)</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> lint               <span class="co"># Code quality checks</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> run-toy            <span class="co"># Quick synthetic test</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> run-sim COUNTRY=tanzania</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> render-report      <span class="co"># Generate validation report</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="baseline-simulation-and-scenarios" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Baseline, Simulation, and Scenarios</h1>
+<section id="baseline-scenario" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="baseline-scenario"><span class="header-section-number">7.1</span> Baseline Scenario</h2>
+<p>The <strong>baseline scenario</strong> represents no policy intervention:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 42%">
+<col style="width: 26%">
+<col style="width: 30%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Parameter</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Policy</td>
+<td><code>none</code> (RulePolicy with default thresholds)</td>
+<td>Default</td>
+</tr>
+<tr class="even">
+<td>Price threshold</td>
+<td>-0.1 (or calibrated from data)</td>
+<td>Config/calibration</td>
+</tr>
+<tr class="odd">
+<td>Asset threshold</td>
+<td>0.0 (or median from data)</td>
+<td>Config/calibration</td>
+</tr>
+<tr class="even">
+<td>Exit threshold</td>
+<td>-1.0 (or 10th percentile)</td>
+<td>Config/calibration</td>
+</tr>
+<tr class="odd">
+<td>Seed</td>
+<td>42</td>
+<td>Default</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Initial Conditions:</strong></p>
+<ul>
+<li>Agents initialized from wave 1 of <code>household_targets.parquet</code></li>
+<li>Enterprise status: from observed LSMS data</li>
+<li>Assets, credit access, price exposure: from derived targets</li>
+</ul>
+</section>
+<section id="implemented-policy-scenarios" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="implemented-policy-scenarios"><span class="header-section-number">7.2</span> Implemented Policy Scenarios</h2>
+<p>Four policy types are implemented, each modifying RulePolicy thresholds:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 21%">
+<col style="width: 28%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Policy</th>
+<th>Mechanism</th>
+<th>Threshold Changes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>none</code></td>
+<td>No intervention</td>
+<td>Default thresholds</td>
+</tr>
+<tr class="even">
+<td><code>credit_access</code></td>
+<td>Subsidized credit</td>
+<td>Asset threshold +0.5</td>
+</tr>
+<tr class="odd">
+<td><code>price_support</code></td>
+<td>Price floor</td>
+<td>Price threshold -0.2</td>
+</tr>
+<tr class="even">
+<td><code>asset_transfer</code></td>
+<td>Targeted transfers</td>
+<td>Asset threshold -0.5, exit threshold -2.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Note:</strong> These are stylized interventions for comparative analysis, not calibrated to specific real-world programs.</p>
+</section>
+<section id="scenario-comparison" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="scenario-comparison"><span class="header-section-number">7.3</span> Scenario Comparison</h2>
+<section id="mechanism-level-differences" class="level3" data-number="7.3.1">
+<h3 data-number="7.3.1" class="anchored" data-anchor-id="mechanism-level-differences"><span class="header-section-number">7.3.1</span> Mechanism-Level Differences</h3>
+<ul>
+<li><strong>Baseline:</strong> Enterprise entry triggered by adverse price shock + low assets</li>
+<li><strong>Credit Access:</strong> Relaxes asset constraint, allowing higher-asset households to enter</li>
+<li><strong>Price Support:</strong> Raises entry threshold, reducing entry under moderate shocks</li>
+<li><strong>Asset Transfer:</strong> Targets poorest households, prevents forced exit</li>
+</ul>
+</section>
+<section id="quantitative-comparison" class="level3" data-number="7.3.2">
+<h3 data-number="7.3.2" class="anchored" data-anchor-id="quantitative-comparison"><span class="header-section-number">7.3.2</span> Quantitative Comparison</h3>
+<p>The validation report (<code>analysis/quarto/validation_report.qmd</code>) compares scenarios on:</p>
+<ol type="1">
+<li><strong>Enterprise entry rate by wave</strong></li>
+<li><strong>Coefficient on price_exposure in fixed-effects regression</strong></li>
+<li><strong>Distribution of classification (stayer/coper/none)</strong></li>
+</ol>
+<p>Specific quantitative results depend on simulation seed and data inputs. Results should be interpreted as illustrative of mechanism differences rather than precise effect estimates.</p>
+</section>
+<section id="behavioral-patterns" class="level3" data-number="7.3.3">
+<h3 data-number="7.3.3" class="anchored" data-anchor-id="behavioral-patterns"><span class="header-section-number">7.3.3</span> Behavioral Patterns</h3>
+<p>Observed patterns consistent with theory:</p>
+<ul>
+<li><strong>Copers</strong> show higher enterprise entry rates in shock waves (wave 2 for Tanzania)</li>
+<li><strong>Stayers</strong> maintain enterprise across waves regardless of price exposure</li>
+<li>Asset-poor households show stronger price-enterprise correlation</li>
+</ul>
+</section>
+</section>
+<section id="cas-like-behaviors" class="level2" data-number="7.4">
+<h2 data-number="7.4" class="anchored" data-anchor-id="cas-like-behaviors"><span class="header-section-number">7.4</span> CAS-Like Behaviors</h2>
+<p>The model exhibits some behaviors associated with complex systems:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 34%">
+<col style="width: 31%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Behavior</th>
+<th>Present</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Non-linearity</strong></td>
+<td>Yes</td>
+<td>Threshold-based entry creates discontinuous response</td>
+</tr>
+<tr class="even">
+<td><strong>Path dependence</strong></td>
+<td>Partial</td>
+<td>Classification depends on history, but no dynamic state</td>
+</tr>
+<tr class="odd">
+<td><strong>Regime shifts</strong></td>
+<td>No</td>
+<td>No evidence of sudden aggregate transitions</td>
+</tr>
+<tr class="even">
+<td><strong>Heterogeneous response</strong></td>
+<td>Yes</td>
+<td>Different household types respond differently to shocks</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Limitations:</strong> The model does not exhibit strong emergence, feedback loops, or self-organization. Aggregate patterns are simple summations of individual behavior.</p>
+</section>
+</section>
+<section id="data-analysis-on-results" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Data Analysis on Results</h1>
+<section id="stochastic-robustness-testing" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="stochastic-robustness-testing"><span class="header-section-number">8.1</span> Stochastic Robustness Testing</h2>
+<p>Multiple simulation runs with different random seeds are used to assess outcome stability. This corresponds to “Monte Carlo robustness checks” rather than formal uncertainty quantification.</p>
+<p><strong>Implementation:</strong> Run <code>make run-sim</code> with different <code>--seed</code> values and compare outcomes.</p>
+<p><strong>Limitation:</strong> The number of runs and specific seeds are not standardized. A formal robustness protocol would specify minimum run count and comparison metrics.</p>
+</section>
+<section id="regression-based-validation" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="regression-based-validation"><span class="header-section-number">8.2</span> Regression-Based Validation</h2>
+<p>Fixed-effects regressions compare simulated and observed data:</p>
+<p><strong>Primary Specification:</strong> <span class="math display">\[\text{enterprise\_entry}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \alpha_i + \gamma_t + \varepsilon_{it}\]</span></p>
+<p>Implemented in <code>analysis/R/validation_helpers.R</code> using <code>fixest::feols()</code> with household and wave fixed effects. Standard errors are clustered at the household level.</p>
+<p><strong>Acceptance Criteria:</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Criterion</th>
+<th>Threshold</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Sign match</td>
+<td><span class="math inline">\(\beta_1 &lt; 0\)</span></td>
+<td>Required for validation</td>
+</tr>
+<tr class="even">
+<td>Magnitude</td>
+<td>Within 1 SE of observed</td>
+<td>Preferred but not required</td>
+</tr>
+<tr class="odd">
+<td>Significance</td>
+<td>p &lt; 0.05</td>
+<td>Conventional threshold</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Caveats:</strong></p>
+<ul>
+<li>The p-value threshold is conventional but arbitrary; it does not provide definitive evidence of distributional similarity.</li>
+<li>Comparing simulated and real data assumes structural comparability between the model and real-world processes; this assumption requires justification.</li>
+</ul>
+</section>
+<section id="distribution-tests" class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="distribution-tests"><span class="header-section-number">8.3</span> Distribution Tests</h2>
+<p><strong>Kolmogorov-Smirnov Test:</strong></p>
+<p>Compares cumulative distribution functions of enterprise rates:</p>
+<p><span class="math display">\[D = \sup_x |F_{sim}(x) - F_{obs}(x)|\]</span></p>
+<p>Acceptance: p &gt; 0.05 (cannot reject that distributions are identical).</p>
+<p><strong>Chi-Squared Test:</strong></p>
+<p>For categorical variables (enterprise status):</p>
+<p><span class="math display">\[\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}\]</span></p>
+<p>Acceptance: p &gt; 0.05.</p>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>KS test assumes continuous distributions; application to binary outcomes is imperfect.</li>
+<li>Chi-squared test requires sufficient expected counts; small cells may violate assumptions.</li>
+<li>Neither test proves distributions are identical, only that we cannot reject similarity.</li>
+</ul>
+</section>
+<section id="threshold-sensitivity-analysis" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="threshold-sensitivity-analysis"><span class="header-section-number">8.4</span> Threshold Sensitivity Analysis</h2>
+<p>Core conclusions are tested across multiple stayer classification thresholds:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Threshold</th>
+<th>Stayer Definition</th>
+<th>Tanzania Waves Required</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>33%</td>
+<td>&gt;33% enterprise waves</td>
+<td>≥2 of 4 waves</td>
+</tr>
+<tr class="even">
+<td>50%</td>
+<td>&gt;50% enterprise waves</td>
+<td>≥3 of 4 waves</td>
+</tr>
+<tr class="odd">
+<td>67%</td>
+<td>&gt;67% enterprise waves</td>
+<td>≥3 of 4 waves</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Acceptance:</strong> Sign stability across all thresholds; majority of results significant at p &lt; 0.05.</p>
+</section>
+<section id="heat-maps-and-response-surfaces" class="level2" data-number="8.5">
+<h2 data-number="8.5" class="anchored" data-anchor-id="heat-maps-and-response-surfaces"><span class="header-section-number">8.5</span> Heat Maps and Response Surfaces</h2>
+<p><strong>Status: Not Implemented</strong></p>
+<p>The current implementation does not include systematic parameter sweeps or response surface visualization. Policy comparison is limited to discrete scenarios rather than continuous parameter variation.</p>
+</section>
+</section>
+<section id="strategy" class="level1" data-number="9">
+<h1 data-number="9"><span class="header-section-number">9</span> Strategy</h1>
+<section id="behavior-search" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="behavior-search"><span class="header-section-number">9.1</span> Behavior Search</h2>
+<p><strong>Status: Not Implemented</strong></p>
+<p>No formal optimization or genetic algorithm search over policy parameters has been conducted. The current implementation supports comparative analysis of pre-specified scenarios only.</p>
+</section>
+<section id="policy-comparison-framework" class="level2" data-number="9.2">
+<h2 data-number="9.2" class="anchored" data-anchor-id="policy-comparison-framework"><span class="header-section-number">9.2</span> Policy Comparison Framework</h2>
+<p>Available policy scenarios can be compared on:</p>
+<ol type="1">
+<li><strong>Enterprise entry rate:</strong> Proportion of households entering enterprise</li>
+<li><strong>Classification distribution:</strong> Relative proportions of stayer/coper/none</li>
+<li><strong>Coefficient match:</strong> Alignment with observed price-enterprise correlation</li>
+</ol>
+<p>This is comparative (“which scenario better matches observations”) rather than optimizing (“which policy maximizes welfare”).</p>
+</section>
+<section id="limits-of-strategic-inference" class="level2" data-number="9.3">
+<h2 data-number="9.3" class="anchored" data-anchor-id="limits-of-strategic-inference"><span class="header-section-number">9.3</span> Limits of Strategic Inference</h2>
+<p><strong>Critical caveats:</strong></p>
+<ol type="1">
+<li><p><strong>No welfare function:</strong> The model does not define household utility or social welfare; “better” policies cannot be identified without normative assumptions.</p></li>
+<li><p><strong>Partial policy representation:</strong> Policy scenarios modify thresholds, not actual policy mechanisms (e.g., credit subsidy amount, price floor level).</p></li>
+<li><p><strong>No dynamic feedback:</strong> Policies do not affect agent state beyond the direct threshold change; no general equilibrium effects.</p></li>
+<li><p><strong>Limited scenario space:</strong> Only four scenarios implemented; the policy space is vastly larger.</p></li>
+</ol>
+<p><strong>Appropriate claims:</strong> The model can identify which stylized policy scenario produces outcomes most consistent with observed patterns. It cannot recommend optimal policy design or quantify welfare impacts.</p>
+</section>
+</section>
+<section id="conclusions" class="level1" data-number="10">
+<h1 data-number="10"><span class="header-section-number">10</span> Conclusions</h1>
+<section id="summary-of-implementation" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="summary-of-implementation"><span class="header-section-number">10.1</span> Summary of Implementation</h2>
+<p>This ABM implements a computational model of household enterprise entry as a coping mechanism for agricultural price shocks. Key implemented features:</p>
+<ul>
+<li><strong>Mesa 3 simulation framework</strong> with household agents and wave-based scheduling</li>
+<li><strong>Threshold-based decision policies</strong> (RulePolicy) calibratable from data</li>
+<li><strong>LLM-augmented decisions</strong> (LLMPolicy) with constraint validation and logging</li>
+<li><strong>ETL pipeline</strong> for LSMS-ISA data (Tanzania, Ethiopia) with Parquet outputs</li>
+<li><strong>R/Quarto validation</strong> with fixed-effects regressions and distribution tests</li>
+<li><strong>Reproducibility infrastructure</strong> including centralized RNG, manifest tracking, and decision logs</li>
+</ul>
+</section>
+<section id="what-worked" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="what-worked"><span class="header-section-number">10.2</span> What Worked</h2>
+<ol type="1">
+<li><p><strong>Core hypothesis replication:</strong> The model produces simulated data where the sign on the price-enterprise correlation matches empirical findings (<span class="math inline">\(\beta_1 &lt; 0\)</span>).</p></li>
+<li><p><strong>Heterogeneity capture:</strong> Asset-poor and credit-constrained households show stronger price-enterprise correlation, consistent with theory.</p></li>
+<li><p><strong>Classification validation:</strong> Simulated stayer/coper proportions align with observed distributions within specified tolerance.</p></li>
+<li><p><strong>Reproducibility:</strong> Identical seeds produce identical outputs; LLM decisions can be replayed deterministically.</p></li>
+</ol>
+</section>
+<section id="what-did-not-work-or-remains-incomplete" class="level2" data-number="10.3">
+<h2 data-number="10.3" class="anchored" data-anchor-id="what-did-not-work-or-remains-incomplete"><span class="header-section-number">10.3</span> What Did Not Work or Remains Incomplete</h2>
+<ol type="1">
+<li><p><strong>Emergence:</strong> The model does not exhibit aggregate patterns beyond individual behavior summation.</p></li>
+<li><p><strong>Agent adaptation:</strong> No learning or belief updating is implemented.</p></li>
+<li><p><strong>Policy optimization:</strong> No systematic search over policy parameters.</p></li>
+<li><p><strong>General equilibrium:</strong> Prices remain exogenous; no market-level feedback.</p></li>
+<li><p><strong>Parameter uncertainty:</strong> Sensitivity analysis is manual rather than systematic.</p></li>
+</ol>
+</section>
+<section id="core-abm-insights" class="level2" data-number="10.4">
+<h2 data-number="10.4" class="anchored" data-anchor-id="core-abm-insights"><span class="header-section-number">10.4</span> Core ABM Insights</h2>
+<p>Based on the implemented model and validation results:</p>
+<ol type="1">
+<li><p><strong>Threshold mechanisms matter:</strong> The price and asset thresholds that trigger enterprise entry significantly affect aggregate patterns. Data-calibrated thresholds improve alignment with observations.</p></li>
+<li><p><strong>Heterogeneity is essential:</strong> A representative-agent model would miss the differential response of stayers vs.&nbsp;copers to price shocks.</p></li>
+<li><p><strong>Credit access mediates response:</strong> The credit interaction term suggests that credit-constrained households have limited coping options.</p></li>
+</ol>
+<p><strong>Caveat:</strong> These insights are based on simulation results and should be interpreted as hypotheses requiring further empirical validation.</p>
+</section>
+<section id="policy-relevance" class="level2" data-number="10.5">
+<h2 data-number="10.5" class="anchored" data-anchor-id="policy-relevance"><span class="header-section-number">10.5</span> Policy Relevance</h2>
+<p><strong>Directional implications (not prescriptive):</strong></p>
+<ul>
+<li>Policies that relax credit constraints may expand coping options for asset-poor households</li>
+<li>Price stabilization policies may reduce enterprise entry by reducing shock magnitude</li>
+<li>Targeted asset transfers may prevent forced enterprise exit among the poorest</li>
+</ul>
+<p><strong>Critical limitations:</strong></p>
+<ul>
+<li>These implications assume the model correctly represents household decision-making</li>
+<li>Real-world policy effects depend on implementation details not captured in the model</li>
+<li>External validity is limited to Tanzania and Ethiopia LSMS-ISA data; generalization to other contexts is uncertain</li>
+</ul>
+</section>
+<section id="external-validity-statement" class="level2" data-number="10.6">
+<h2 data-number="10.6" class="anchored" data-anchor-id="external-validity-statement"><span class="header-section-number">10.6</span> External Validity Statement</h2>
+<p>The model is calibrated and validated against:</p>
+<ul>
+<li><strong>Tanzania:</strong> LSMS-ISA National Panel Survey, 4 waves (2008-2014)</li>
+<li><strong>Ethiopia:</strong> LSMS-ISA Socioeconomic Survey, 3 waves (2011-2015)</li>
+</ul>
+<p>Generalization beyond these contexts (other countries, time periods, or data sources) requires additional validation. The model’s parameters and behavioral rules may not transfer to settings with different institutional contexts, agricultural systems, or enterprise environments.</p>
+</section>
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="references-and-appendix" class="level1 appendix" data-number="11"><h2 class="anchored quarto-appendix-heading"><span class="header-section-number">11</span> References and Appendix</h2><div class="quarto-appendix-contents">
+
+<section id="academic-references" class="level2" data-number="11.1">
+<h2 data-number="11.1" class="anchored" data-anchor-id="academic-references"><span class="header-section-number">11.1</span> Academic References</h2>
+<p>The model is based on empirical findings from research on household enterprises and agricultural shocks in Sub-Saharan Africa. The specific source paper (“Booms, Busts, and Household Enterprise”) provides the theoretical foundation.</p>
+<p><strong>Methodology references:</strong></p>
+<ul>
+<li>Grimm, V., et al.&nbsp;“The ODD protocol for describing agent-based and other simulation models.” <em>Ecological Modelling</em>, 2020.</li>
+<li>Mesa: Agent-based modeling in Python (https://mesa.readthedocs.io/)</li>
+</ul>
+</section>
+<section id="software-and-data-references" class="level2" data-number="11.2">
+<h2 data-number="11.2" class="anchored" data-anchor-id="software-and-data-references"><span class="header-section-number">11.2</span> Software and Data References</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Version/Source</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Python</td>
+<td>3.11+</td>
+</tr>
+<tr class="even">
+<td>Mesa</td>
+<td>3.x</td>
+</tr>
+<tr class="odd">
+<td>Pandas</td>
+<td>2.x</td>
+</tr>
+<tr class="even">
+<td>Pydantic</td>
+<td>2.x</td>
+</tr>
+<tr class="odd">
+<td>R</td>
+<td>4.x</td>
+</tr>
+<tr class="even">
+<td>fixest</td>
+<td>R package for fixed effects</td>
+</tr>
+<tr class="odd">
+<td>Quarto</td>
+<td>Document rendering</td>
+</tr>
+<tr class="even">
+<td>LSMS-ISA</td>
+<td>World Bank microdata</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="external-model-consultations" class="level2" data-number="11.3">
+<h2 data-number="11.3" class="anchored" data-anchor-id="external-model-consultations"><span class="header-section-number">11.3</span> External Model Consultations</h2>
+<section id="gemini-2.0-flash-sections-1-3-methodology-review" class="level3" data-number="11.3.1">
+<h3 data-number="11.3.1" class="anchored" data-anchor-id="gemini-2.0-flash-sections-1-3-methodology-review"><span class="header-section-number">11.3.1</span> Gemini 2.0 Flash (Sections 1-3 Methodology Review)</h3>
+<p><strong>Purpose:</strong> Review Introduction, Research Question, and ABM/CAS Justification for methodological correctness.</p>
+<p><strong>Key Feedback Incorporated:</strong></p>
+<ol type="1">
+<li>Changed “validated against” to “calibrated using” to avoid overclaiming</li>
+<li>Added explicit justification for 50% stayer threshold</li>
+<li>Documented what CAS features are and are not implemented</li>
+<li>Added limitations on computational cost, parameter uncertainty, and oversimplification</li>
+<li>Clarified that agents have continuous variables but discrete decision-making</li>
+</ol>
+</section>
+<section id="gpt-4o-sections-8-10-inference-review" class="level3" data-number="11.3.2">
+<h3 data-number="11.3.2" class="anchored" data-anchor-id="gpt-4o-sections-8-10-inference-review"><span class="header-section-number">11.3.2</span> GPT-4o (Sections 8-10 Inference Review)</h3>
+<p><strong>Purpose:</strong> Red-team reproducibility claims, inference validity, and policy interpretation.</p>
+<p><strong>Key Feedback Incorporated:</strong></p>
+<ol type="1">
+<li>Replaced “BehaviorSpace-style robustness” with “Monte Carlo robustness checks”</li>
+<li>Clarified p-value threshold interpretation (conventional, not definitive)</li>
+<li>Added caveats about structural comparability for simulation-to-real comparison</li>
+<li>Emphasized exploratory nature of findings</li>
+<li>Strengthened external validity limitations statement</li>
+</ol>
+</section>
+</section>
+<section id="validation-contract-reference" class="level2" data-number="11.4">
+<h2 data-number="11.4" class="anchored" data-anchor-id="validation-contract-reference"><span class="header-section-number">11.4</span> Validation Contract Reference</h2>
+<p>The validation contract (<code>docs/VALIDATION_CONTRACT.md</code>) specifies:</p>
+<ul>
+<li>Primary estimand: enterprise_entry ~ price_exposure | household + wave FE</li>
+<li>Secondary estimands: Asset and credit interaction terms</li>
+<li>Classification validation: Stayer/coper proportions within 10pp</li>
+<li>Threshold sensitivity: Stability across 33%, 50%, 67% thresholds</li>
+</ul>
+<p><strong>Review Status:</strong> ACCEPTED (2026-01-13) by external reviewers.</p>
+</section>
+<section id="repository-artifacts" class="level2" data-number="11.5">
+<h2 data-number="11.5" class="anchored" data-anchor-id="repository-artifacts"><span class="header-section-number">11.5</span> Repository Artifacts</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 40%">
+<col style="width: 24%">
+<col style="width: 36%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Artifact</th>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Concept of Operations</td>
+<td><code>docs/CONOPS.md</code></td>
+<td>System architecture</td>
+</tr>
+<tr class="even">
+<td>Validation Contract</td>
+<td><code>docs/VALIDATION_CONTRACT.md</code></td>
+<td>Estimands and acceptance criteria</td>
+</tr>
+<tr class="odd">
+<td>Architectural Decisions</td>
+<td><code>docs/DECISIONS.md</code></td>
+<td>Design choices and rationale</td>
+</tr>
+<tr class="even">
+<td>Measurement Mapping</td>
+<td><code>docs/measurement_mapping.csv</code></td>
+<td>Variable definitions</td>
+</tr>
+<tr class="odd">
+<td>Threshold Justification</td>
+<td><code>docs/THRESHOLD_JUSTIFICATION.md</code></td>
+<td>Classification threshold rationale</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="appendix-a-code-excerpts" class="level2" data-number="11.6">
+<h2 data-number="11.6" class="anchored" data-anchor-id="appendix-a-code-excerpts"><span class="header-section-number">11.6</span> Appendix A: Code Excerpts</h2>
+<section id="a.1-policy-interface-base.py" class="level3" data-number="11.6.1">
+<h3 data-number="11.6.1" class="anchored" data-anchor-id="a.1-policy-interface-base.py"><span class="header-section-number">11.6.1</span> A.1 Policy Interface (base.py)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> BasePolicy(ABC):</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Abstract base class for decision policies."""</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@abstractmethod</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> decide(<span class="va">self</span>, state: HouseholdState) <span class="op">-&gt;</span> Action:</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Determine action given household state.</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="co">        Args:</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="co">            state: Current household state (frozen, immutable)</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="co">        Returns:</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="co">            Action enum: ENTER_ENTERPRISE, EXIT_ENTERPRISE, or NO_CHANGE</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="co">        """</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">pass</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="a.2-rulepolicy-entry-evaluation-rule.py" class="level3" data-number="11.6.2">
+<h3 data-number="11.6.2" class="anchored" data-anchor-id="a.2-rulepolicy-entry-evaluation-rule.py"><span class="header-section-number">11.6.2</span> A.2 RulePolicy Entry Evaluation (rule.py)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _evaluate_entry(<span class="va">self</span>, state: HouseholdState) <span class="op">-&gt;</span> Action:</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Evaluate enterprise entry decision."""</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> state.enterprise_status <span class="op">==</span> EnterpriseStatus.NO_ENTERPRISE:</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>        adverse_shock <span class="op">=</span> state.price_exposure <span class="op">&lt;</span> <span class="va">self</span>.price_threshold</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        low_assets <span class="op">=</span> state.assets <span class="op">&lt;</span> <span class="va">self</span>.asset_threshold</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> adverse_shock <span class="kw">and</span> low_assets:</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> Action.ENTER_ENTERPRISE</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Action.NO_CHANGE</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="a.3-agent-step-method-household.py" class="level3" data-number="11.6.3">
+<h3 data-number="11.6.3" class="anchored" data-anchor-id="a.3-agent-step-method-household.py"><span class="header-section-number">11.6.3</span> A.3 Agent Step Method (household.py)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> step(<span class="va">self</span>):</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Execute one simulation step."""</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    prev_status <span class="op">=</span> <span class="va">self</span>.state.enterprise_status</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.state.action_taken <span class="op">=</span> <span class="st">"NO_CHANGE"</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.state.policy_applied <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.state.enterprise_entry <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>._policy <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>        household_state <span class="op">=</span> <span class="va">self</span>.get_household_state()</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>        action <span class="op">=</span> <span class="va">self</span>._policy.decide(household_state)</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.state.policy_applied <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>        action <span class="op">=</span> Action.NO_CHANGE</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>._apply_action(action)</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> prev_status <span class="op">==</span> <span class="dv">0</span> <span class="kw">and</span> <span class="va">self</span>.state.enterprise_status <span class="op">==</span> <span class="dv">1</span>:</span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.state.enterprise_entry <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.state.wave <span class="op">=</span> <span class="va">self</span>.model.current_wave</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="a.4-calibration-function-model.py" class="level3" data-number="11.6.4">
+<h3 data-number="11.6.4" class="anchored" data-anchor-id="a.4-calibration-function-model.py"><span class="header-section-number">11.6.4</span> A.4 Calibration Function (model.py)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> compute_calibration_thresholds(targets_df: pd.DataFrame) <span class="op">-&gt;</span> <span class="bu">dict</span>:</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Compute data-driven policy thresholds."""</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    negative_exposures <span class="op">=</span> targets_df[</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>        targets_df[<span class="st">"price_exposure"</span>] <span class="op">&lt;</span> <span class="dv">0</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    ][<span class="st">"price_exposure"</span>]</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"price_threshold"</span>: negative_exposures.median(),</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">"asset_threshold"</span>: targets_df[<span class="st">"asset_index"</span>].median(),</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">"exit_asset_threshold"</span>: targets_df[<span class="st">"asset_index"</span>].quantile(<span class="fl">0.10</span>),</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>    }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+<p><em>Document generated: 2026-01-13</em></p>
+<p><em>Repository: abm-enterprise-coping</em></p>
+<p><em>Git commit: See manifest.json in output directory</em></p>
+</section>
+</section>
+</div></section></div></main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
