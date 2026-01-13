@@ -1,7 +1,7 @@
 # Root Makefile
 # ABM Enterprise Coping Model
 
-.PHONY: help setup install test lint format type-check run run-toy run-sim validate ingest-data derive-targets setup-r render-report render-report-country clean
+.PHONY: help setup install test lint format type-check run run-toy run-sim run-sim-synthetic run-sim-llm-stub run-sim-llm-replay run-sim-llm-claude run-sim-llm-openai validate ingest-data derive-targets setup-r render-report render-report-country clean
 
 # Default target
 help:
@@ -18,6 +18,10 @@ help:
 	@echo "  run-toy            - Run toy simulation with synthetic data"
 	@echo "  run-sim            - Run simulation with derived targets (use COUNTRY=name)"
 	@echo "  run-sim-synthetic  - Run simulation with synthetic data only"
+	@echo "  run-sim-llm-stub   - Run with LLM stub policy (deterministic)"
+	@echo "  run-sim-llm-replay - Run with LLM replay from logs"
+	@echo "  run-sim-llm-claude - Run with Claude LLM (needs ANTHROPIC_API_KEY)"
+	@echo "  run-sim-llm-openai - Run with OpenAI LLM (needs OPENAI_API_KEY)"
 	@echo "  validate           - Validate output schema"
 	@echo "  ingest-data        - Download and process LSMS data"
 	@echo "  derive-targets     - Build derived target tables"
@@ -37,6 +41,8 @@ help:
 	@echo "  make run-sim COUNTRY=tanzania"
 	@echo "  make run-sim COUNTRY=tanzania CALIBRATE=1"
 	@echo "  make run-sim-synthetic COUNTRY=ethiopia"
+	@echo "  make run-sim-llm-stub COUNTRY=tanzania"
+	@echo "  make run-sim-llm-replay COUNTRY=tanzania REPLAY_LOG=path/to/log.jsonl"
 	@echo "  make ingest-data country=tanzania"
 	@echo "  make derive-targets country=tanzania"
 	@echo "  make render-report"
@@ -89,6 +95,7 @@ COUNTRY ?= tanzania
 SCENARIO ?= baseline
 SEED ?= 42
 CALIBRATE ?= 0
+POLICY ?= none
 
 # Run simulation with derived data (default for non-toy runs)
 run-sim:
@@ -101,6 +108,24 @@ endif
 # Run simulation with synthetic data only (no derived targets)
 run-sim-synthetic:
 	abm run-sim $(COUNTRY) --scenario $(SCENARIO) --seed $(SEED) --output-dir outputs
+
+# Run simulation with LLM stub policy (deterministic rule-based)
+run-sim-llm-stub:
+	abm run-sim $(COUNTRY) --scenario llm_stub --seed $(SEED) --policy llm_stub --decision-log-dir decision_logs/$(COUNTRY) --output-dir outputs
+
+# Run simulation with LLM replay (reproduce from logs)
+# Usage: make run-sim-llm-replay COUNTRY=tanzania REPLAY_LOG=decision_logs/tanzania/decisions_*.jsonl
+REPLAY_LOG ?= decision_logs/$(COUNTRY)/decisions.jsonl
+run-sim-llm-replay:
+	abm run-sim $(COUNTRY) --scenario llm_replay --seed $(SEED) --policy llm_replay --replay-log $(REPLAY_LOG) --decision-log-dir decision_logs/$(COUNTRY)/replay --output-dir outputs
+
+# Run simulation with Claude LLM (requires ANTHROPIC_API_KEY)
+run-sim-llm-claude:
+	abm run-sim $(COUNTRY) --scenario llm_claude --seed $(SEED) --policy llm_claude --decision-log-dir decision_logs/$(COUNTRY) --output-dir outputs
+
+# Run simulation with OpenAI LLM (requires OPENAI_API_KEY)
+run-sim-llm-openai:
+	abm run-sim $(COUNTRY) --scenario llm_openai --seed $(SEED) --policy llm_openai --decision-log-dir decision_logs/$(COUNTRY) --output-dir outputs
 
 # Validate output schema
 validate:

@@ -1,8 +1,8 @@
 # PROJECT STATE - ABM Enterprise Coping Model
 
 **Last Updated:** 2026-01-13
-**Git Commit:** 57cd64d
-**Current Phase:** Phase 3 Complete - ABM Baseline + Estimand Validation
+**Git Commit:** a9bfb67
+**Current Phase:** Phase 4 Complete - LLM Decision Layer
 
 ---
 
@@ -25,7 +25,7 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 | 1 | Scaffold + Tooling + Toy Pipeline | COMPLETE | [x] |
 | 2 | LSMS Ingestion + Canonical Panels | COMPLETE | [x] |
 | 3 | ABM Baseline + Estimand Validation | COMPLETE | [x] |
-| 4 | LLM Decision Layer | NOT STARTED | [ ] |
+| 4 | LLM Decision Layer | COMPLETE | [x] |
 | 5 | External Model Reviews | NOT STARTED | [ ] |
 
 ---
@@ -88,12 +88,12 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 
 ## Phase 4 TODO Board
 
-- [ ] **Agent-LLM-Policy**: Implement proposal→constraints→commit interface
-- [ ] **Agent-LLM-Policy**: Add prompt/output logging
-- [ ] **Agent-LLM-Policy**: Provide stubbed provider adapters
-- [ ] **Agent-LLM-Policy**: Ensure deterministic replay option
-- [ ] Verify: `make run-sim policy=llm_stub` runs with decision logs
-- [ ] Verify: Schema validation rejects malformed actions
+- [x] **Agent-LLM-Policy**: Implement proposal→constraints→commit interface
+- [x] **Agent-LLM-Policy**: Add prompt/output logging (JSONL with state hash)
+- [x] **Agent-LLM-Policy**: Provide stubbed provider adapters (Stub, Replay, Claude, OpenAI)
+- [x] **Agent-LLM-Policy**: Ensure deterministic replay option (ReplayProvider)
+- [x] Verify: `make run-sim policy=llm_stub` runs with decision logs (101 tests pass)
+- [x] Verify: Schema validation rejects malformed actions (constraint tests pass)
 
 ---
 
@@ -115,6 +115,7 @@ Validated using LSMS-ISA harmonised dataset, starting with Tanzania and extendin
 | a2ca693 | Agent-ETL | LSMS ingestion, canonical Parquet, derived targets | Complete | main |
 | aea2bed | Agent-ABM-Core | Derived targets, classification, validation output | Complete | main |
 | a3f002a | Agent-Validation-R | FE regressions, distribution tests, portability | Complete | main |
+| acd2a31 | Agent-LLM-Policy | LLM providers, constraints, logging, replay | Complete | main |
 
 ---
 

@@ -99,7 +99,7 @@ def run_sim(
         "none",
         "--policy",
         "-p",
-        help="Policy type (none, credit_access, price_support, asset_transfer, calibrated)",
+        help="Policy type (none, credit_access, price_support, asset_transfer, calibrated, llm_stub, llm_replay, llm_claude, llm_openai)",
     ),
     data_dir: Path | None = typer.Option(
         None,
@@ -118,6 +118,16 @@ def run_sim(
         "--calibrate",
         "-c",
         help="Auto-calibrate policy thresholds from derived data",
+    ),
+    decision_log_dir: Path | None = typer.Option(
+        None,
+        "--decision-log-dir",
+        help="Directory for LLM decision logs",
+    ),
+    replay_log: Path | None = typer.Option(
+        None,
+        "--replay-log",
+        help="Path to decision log for replay mode",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ) -> None:
@@ -180,10 +190,17 @@ def run_sim(
         typer.echo("Using synthetic data (no --data-dir provided)")
 
     # Parse policy type and create policy
+    from abm_enterprise.policies.llm import LLMPolicyFactory
     from abm_enterprise.policies.rule import CalibratedRulePolicy
 
     model_policy = None
     policy_type = PolicyType.NONE
+    llm_policy_used = False
+
+    # Determine decision log directory for LLM policies
+    effective_log_dir = decision_log_dir
+    if effective_log_dir is None and policy.startswith("llm_"):
+        effective_log_dir = output_dir / country / scenario / "decision_logs"
 
     if policy == "calibrated" or calibrate:
         # Use calibrated policy
@@ -196,12 +213,68 @@ def run_sim(
         else:
             model_policy = CalibratedRulePolicy.from_config(country)
             typer.echo("Using CalibratedRulePolicy with config thresholds")
+
+    elif policy == "llm_stub":
+        # LLM policy with stub provider
+        model_policy = LLMPolicyFactory.create_stub_policy(
+            log_dir=effective_log_dir,
+            country=country,
+        )
+        llm_policy_used = True
+        typer.echo(f"Using LLMPolicy with StubProvider, logs: {effective_log_dir}")
+
+    elif policy == "llm_replay":
+        # LLM policy with replay provider
+        if replay_log is None:
+            typer.echo("Error: --replay-log required for llm_replay policy", err=True)
+            raise typer.Exit(code=1)
+        if not replay_log.exists():
+            typer.echo(f"Error: Replay log not found: {replay_log}", err=True)
+            raise typer.Exit(code=1)
+        model_policy = LLMPolicyFactory.create_replay_policy(
+            log_path=replay_log,
+            log_dir=effective_log_dir,
+            country=country,
+        )
+        llm_policy_used = True
+        typer.echo(f"Using LLMPolicy with ReplayProvider from: {replay_log}")
+
+    elif policy == "llm_claude":
+        # LLM policy with Claude provider
+        import os
+
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            typer.echo("Error: ANTHROPIC_API_KEY environment variable required", err=True)
+            raise typer.Exit(code=1)
+        model_policy = LLMPolicyFactory.create_claude_policy(
+            log_dir=effective_log_dir,
+            country=country,
+        )
+        llm_policy_used = True
+        typer.echo(f"Using LLMPolicy with ClaudeProvider, logs: {effective_log_dir}")
+
+    elif policy == "llm_openai":
+        # LLM policy with OpenAI provider
+        import os
+
+        if not os.environ.get("OPENAI_API_KEY"):
+            typer.echo("Error: OPENAI_API_KEY environment variable required", err=True)
+            raise typer.Exit(code=1)
+        model_policy = LLMPolicyFactory.create_openai_policy(
+            log_dir=effective_log_dir,
+            country=country,
+        )
+        llm_policy_used = True
+        typer.echo(f"Using LLMPolicy with OpenAIProvider, logs: {effective_log_dir}")
+
     else:
         try:
             policy_type = PolicyType(policy)
         except ValueError:
             typer.echo(f"Invalid policy type: {policy}", err=True)
-            valid_options = [p.value for p in PolicyType] + ["calibrated"]
+            valid_options = [p.value for p in PolicyType] + [
+                "calibrated", "llm_stub", "llm_replay", "llm_claude", "llm_openai"
+            ]
             typer.echo(f"Valid options: {valid_options}", err=True)
             raise typer.Exit(code=1)
 
@@ -228,6 +301,22 @@ def run_sim(
     typer.echo(f"\nSimulation complete. Outputs written to {output_subdir}")
     typer.echo(f"  - Outcomes: {output_paths['outcomes']}")
     typer.echo(f"  - Manifest: {output_paths['manifest']}")
+
+    # Save LLM decision logs if applicable
+    if llm_policy_used and model_policy is not None:
+        from abm_enterprise.policies.llm import LLMPolicy
+
+        if isinstance(model_policy, LLMPolicy):
+            log_path = model_policy.save_log()
+            typer.echo(f"  - Decision log: {log_path}")
+
+            # Print decision summary
+            summary = model_policy.get_log_summary()
+            typer.echo(f"\nLLM Decision Summary:")
+            typer.echo(f"  Total decisions: {summary['total_decisions']}")
+            typer.echo(f"  Constraint failure rate: {summary['constraint_failure_rate']:.1%}")
+            for action, count in summary.get('action_counts', {}).items():
+                typer.echo(f"  {action}: {count}")
 
     # Summary statistics for validation contract
     outcomes = model.get_outcomes_dataframe()
