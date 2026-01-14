@@ -12,10 +12,17 @@ outputs/
 │   └── llm_stub/             # LLM policy with stub provider
 ├── ethiopia/
 │   └── baseline/             # Ethiopia baseline simulation
-└── batch/                    # Multi-seed batch runs for robustness
-    ├── seed_1/
-    ├── seed_2/
-    └── ...seed_10/
+├── batch/                    # Multi-seed batch runs for robustness
+│   ├── seed_1/
+│   ├── seed_2/
+│   └── ...seed_10/
+├── sweeps/                   # Parameter sweep outputs (for heatmaps)
+│   ├── sweep_agg_latest.parquet  # Aggregated results
+│   ├── sweep_full_latest.parquet # Full per-seed results
+│   └── sweep_config_latest.json  # Sweep configuration
+└── search/                   # Behavior search outputs (optimization)
+    ├── candidates_latest.parquet # Candidate evaluations
+    └── search_config_latest.json # Search configuration
 ```
 
 ## Output Files
@@ -90,12 +97,14 @@ for seed in range(1, 11):
 
 ### Parameter Sweep (Sensitivity Analysis)
 ```bash
-# Example: sweep price threshold
-for thresh in 0.3 0.5 0.7 0.9; do
-  abm run-sim tanzania --scenario baseline \
-    --param price_threshold=$thresh \
-    --output-dir outputs/sweep/price_$thresh
-done
+# Automated sweep script (6x6 grid, 2 seeds each = 72 runs)
+python3 scripts/run_sweep.py --grid-size 6 --seeds 2 --households 100
+```
+
+### Behavior Search (Optimization)
+```bash
+# Random search for optimal parameters (40 candidates, 2 seeds each)
+python3 scripts/run_behavior_search.py --n-candidates 40 --seeds 2
 ```
 
 ## Data Schema

@@ -4,7 +4,7 @@ subtitle: "An Agent-Based Model with LLM Decision Evaluation: Technical Report"
 author:
   - name: "Michael [Author]"
     affiliation: "Personal AI Infrastructure"
-date: "2026-01-13"
+date: "2026-01-14"
 format:
   html:
     toc: true
@@ -92,11 +92,17 @@ This document presents a comprehensive agent-based model (ABM) investigating hou
 3. LLM decisions are evaluated against both direct prediction tasks and full simulation comparisons
 4. Multi-sample voting with constraint validation ensures robust LLM decisions
 
+::: {.callout-important title="Implementation Status"}
+**LLM policy results are NOT yet included in this report.** All simulation outputs currently use `RulePolicy` (deterministic thresholds) or no policy. LLM-related sections describe the **implemented architecture** and **planned evaluation approach**, not empirical results.
+
+To generate LLM results: `abm run-sim tanzania --policy llm_openai --k-samples 5`
+:::
+
 **LLM-Mediated Decision Making:** Household enterprise decisions are LLM-mediated probabilistic choices conditioned on household state. The `MultiSampleLLMPolicy` (`src/abm_enterprise/policies/llm.py:429-703`) generates K samples (default: 5) at a configurable temperature, parses each response, validates against feasibility constraints, and aggregates via majority voting (`src/abm_enterprise/policies/voting.py:76-130`). Tie-breaking defaults to conservative (NO_CHANGE). Decision caching (`src/abm_enterprise/policies/cache.py:83-212`) ensures reproducibility and reduces API costs for identical household states. This approach acknowledges that decisions are inherently stochastic and agent-dependent, not deterministic optimization.
 
 **Framework:** Mesa 3.0 (Python agent-based modeling)
 **Data Source:** LSMS-ISA Harmonized Panel (Tanzania 2008-2014, Ethiopia 2011-2015)
-**Current Commit:** `ec8c6ec` (branch: `refactor/synthetic-llm-policy`)
+**Current Commit:** `ec8c6ec` (branch: `docs/abm-report-fixes`)
 
 This document follows the outline specified for publication-quality ABM reports, incorporating insights from AI-sourced deep research (OpenAI o1, Gemini deep-research; 2026-01-13).
 
@@ -726,6 +732,15 @@ outputs/
 
 # Baseline, Simulation, and Scenarios {#sec-scenarios}
 
+::: {.callout-note title="Data Source Classification"}
+This section presents results from multiple simulation runs with different data sources:
+
+- **LSMS-derived** (Tanzania/Ethiopia baseline): Uses real household data from LSMS-ISA harmonized panel
+- **Synthetic uncalibrated** (Toy mode, Batch runs): Uses `generate_synthetic_households()` with hardcoded distributions
+
+See `docs/DATA_AUDIT.md` for full provenance documentation.
+:::
+
 ## Baseline Case {#sec-baseline}
 
 The baseline scenario uses calibrated parameters from Tanzania LSMS data with the RulePolicy (deterministic thresholds):
@@ -740,7 +755,7 @@ The baseline scenario uses calibrated parameters from Tanzania LSMS data with th
 
 ```{r}
 #| label: fig-baseline-enterprise
-#| fig-cap: "Enterprise rates by wave from baseline simulations. Tanzania baseline (N=500) shows realistic ~20% enterprise rate, while toy mode (N=100) shows higher rates due to different threshold calibration."
+#| fig-cap: "Enterprise rates by wave from baseline simulations. Tanzania baseline (N=500, LSMS-derived) shows realistic ~20% enterprise rate, while toy mode (N=100, synthetic uncalibrated) shows higher rates due to different threshold calibration. **Data source:** Tanzania=LSMS-derived; Toy=synthetic uncalibrated."
 
 # Load available simulation data
 tz_baseline_path <- file.path(OUTPUT_BASE, "tanzania", "baseline")
@@ -841,7 +856,7 @@ if (length(scenarios) > 0) {
 
 ```{r}
 #| label: fig-classification
-#| fig-cap: "Distribution of household classifications (stayer/coper/none) by scenario. Classifications emerge from enterprise persistence across waves."
+#| fig-cap: "Distribution of household classifications (stayer/coper/none) by scenario. Classifications emerge from enterprise persistence across waves. **Data source:** Tanzania=LSMS-derived; Toy=synthetic uncalibrated."
 
 if (data_exists(file.path(tz_baseline_path, "household_outcomes.parquet"))) {
   # Get classification breakdown
@@ -881,12 +896,20 @@ if (data_exists(file.path(tz_baseline_path, "household_outcomes.parquet"))) {
 
 ### CAS Behaviors: Assessment {#sec-cas-behaviors}
 
+::: {.callout-note title="Evidence Classification"}
+CAS behaviors are classified as:
+
+- **Observed**: Demonstrated with empirical evidence from simulations
+- **Hypothesized**: Expected from theory but not yet tested with current data
+- **Not Observed**: Tested and found absent in current architecture
+:::
+
 **Path Dependence (Observed):**
 Enterprise status exhibits persistence---households that enter enterprise in wave 1 are more likely to remain in subsequent waves. This creates path-dependent trajectories that differ from random entry/exit.
 
 ```{r}
 #| label: tbl-path-dependence
-#| tbl-cap: "Transition matrix showing path dependence in enterprise status. Values show probability of next-wave status given current status."
+#| tbl-cap: "Transition matrix showing path dependence in enterprise status. Values show probability of next-wave status given current status. **Data source:** LSMS-derived (Tanzania baseline)."
 
 if (exists("tz_sim") && !is.null(tz_sim)) {
   # Calculate transition matrix
@@ -932,11 +955,17 @@ The model does not exhibit regime shifts or tipping points, as there are no agen
 
 # Data Analysis on Results {#sec-analysis}
 
+::: {.callout-warning title="Synthetic Data Notice"}
+The batch robustness analysis, parameter sweeps, and behavior search in this section use **synthetic uncalibrated** data generated by `generate_synthetic_households()`. This is NOT calibrated to LSMS distributions. Results should be interpreted as exploratory sensitivity analysis, not validated empirical findings.
+
+To generate calibration-based results, run: `abm calibrate --country tanzania` then use `SyntheticPanelGenerator`.
+:::
+
 ## BehaviorSpace / Batch-Run Robustness {#sec-behaviorspace}
 
 ```{r}
 #| label: fig-robustness
-#| fig-cap: "Distribution of enterprise rates across 10 replicate runs with different random seeds. Shaded region shows mean +/- 1 SD. The narrow distribution indicates stable outcomes across stochastic realizations."
+#| fig-cap: "Distribution of enterprise rates across 10 replicate runs with different random seeds. Shaded region shows mean +/- 1 SD. The narrow distribution indicates stable outcomes across stochastic realizations. **Data source:** Synthetic uncalibrated (toy mode, seeds 1-10, N=100)."
 
 batch_path <- file.path(OUTPUT_BASE, "batch")
 
@@ -1078,50 +1107,53 @@ Policy sensitivity heatmaps visualize how outcome metrics vary across two-dimens
 
 ```{r}
 #| label: fig-heatmap
-#| fig-cap: "Policy sensitivity heatmap showing enterprise rate as a function of price threshold and asset threshold. This is a synthetic example based on model parameters; actual sweep data would require running simulations across the parameter grid."
+#| fig-cap: "Policy sensitivity heatmap showing enterprise rate as a function of price threshold and asset threshold. Data from 72 simulation runs (6x6 grid, 2 seeds each). **Data source:** Synthetic uncalibrated (N=100, seeds 42-43). See DATA_CONTRACT.md for provenance."
 
-# Generate synthetic sweep data based on model behavior
-# In production, this would be actual sweep results
-sweep_df <- expand.grid(
-  price_threshold = seq(-0.3, 0.0, by = 0.05),
-  asset_threshold = seq(-1.0, 1.0, by = 0.25)
-) |>
-  mutate(
-    # Model behavior: lower price threshold + lower asset threshold -> more entry
-    enterprise_rate = 0.15 + 0.25 * pnorm(price_threshold + 0.15, sd = 0.1) +
-                     0.15 * pnorm(-asset_threshold, sd = 0.5)
-  )
+# Load real sweep data from parameter sweep
+sweep_path <- here::here("outputs", "sweeps", "sweep_agg_latest.parquet")
 
-create_sensitivity_heatmap(
-  sweep_df,
-  x_var = "price_threshold",
-  y_var = "asset_threshold",
-  fill_var = "enterprise_rate"
-) +
-  labs(
-    x = "Price Threshold",
-    y = "Asset Threshold",
-    fill = "Enterprise\nRate"
-  )
+if (file.exists(sweep_path)) {
+  sweep_df <- arrow::read_parquet(sweep_path) |>
+    rename(enterprise_rate = enterprise_rate_mean)
+
+  create_sensitivity_heatmap(
+    sweep_df,
+    x_var = "price_threshold",
+    y_var = "asset_threshold",
+    fill_var = "enterprise_rate"
+  ) +
+    labs(
+      x = "Price Threshold",
+      y = "Asset Threshold",
+      fill = "Enterprise\nRate"
+    )
+} else {
+  # Fallback message if sweep data not found
+  ggplot() +
+    annotate("text", x = 0.5, y = 0.5,
+             label = "Sweep data not found.\nRun: python3 scripts/run_sweep.py",
+             size = 4) +
+    theme_void()
+}
 ```
 
-**Note:** The heatmap above shows expected model behavior based on parameter relationships. To generate actual sweep data:
+The heatmap reveals key policy sensitivities:
+
+- **Price threshold effect:** Lower (more negative) price thresholds require stronger price shocks to trigger enterprise entry, resulting in lower overall enterprise rates
+- **Asset threshold effect:** Higher asset thresholds allow more households to qualify for entry, increasing enterprise rates
+- **Interaction:** The effects are approximately additive in this parameter region
+
+**Regeneration command:**
 
 ```bash
-# Sweep price_threshold x asset_threshold
-for pt in -0.3 -0.2 -0.1 0.0; do
-  for at in -1.0 -0.5 0.0 0.5 1.0; do
-    abm run-toy --price-threshold $pt --asset-threshold $at \
-      --output-dir outputs/sweep/pt_${pt}_at_${at}
-  done
-done
+python3 scripts/run_sweep.py --grid-size 6 --seeds 2 --households 100
 ```
 
 **Design Note (per AI-sourced guidance):**
 
-- Use viridis sequential scale for colorblind safety
-- Consider diverging scale (blue-white-orange) for deviation from baseline
-- Overlay statistical significance markers where applicable
+- Viridis sequential scale for colorblind safety
+- Consider adding contour lines for coefficient of variation
+- FANOVA graphs recommended for visualizing parameter interactions (extension)
 
 # Strategy {#sec-strategy}
 
@@ -1200,6 +1232,61 @@ study.optimize(objective, n_trials=50)
 3. Define objective function for replication accuracy
 4. Add CLI command `abm optimize`
 
+### Behavior Search Results
+
+```{r}
+#| label: tbl-search-results
+#| tbl-cap: "Top 5 parameter configurations from random search (40 candidates, 2 seeds each). Objective is MSE between simulated and target enterprise rates. **Data source:** Synthetic uncalibrated (N=100). **Target source:** Hardcoded LSMS stylized facts."
+
+search_path <- here::here("outputs", "search", "candidates_latest.parquet")
+
+if (file.exists(search_path)) {
+  candidates <- arrow::read_parquet(search_path) |>
+    head(5) |>
+    select(candidate_id, price_threshold, asset_threshold, exit_threshold, objective) |>
+    mutate(
+      across(c(price_threshold, asset_threshold, exit_threshold), ~round(., 3)),
+      objective = round(objective, 4)
+    )
+
+  knitr::kable(candidates,
+    col.names = c("ID", "Price Thresh", "Asset Thresh", "Exit Thresh", "Objective"),
+    align = "ccccc"
+  )
+} else {
+  cat("Search results not found. Run: python3 scripts/run_behavior_search.py")
+}
+```
+
+```{r}
+#| label: fig-search-objective
+#| fig-cap: "Behavior search objective (MSE) by candidate. Lower values indicate better match to LSMS enterprise rate targets."
+
+if (file.exists(search_path)) {
+  candidates_all <- arrow::read_parquet(search_path)
+
+  ggplot(candidates_all, aes(x = reorder(candidate_id, objective), y = objective)) +
+    geom_col(fill = "#0072B2", alpha = 0.7) +
+    labs(
+      x = "Candidate (sorted by objective)",
+      y = "Objective (MSE)"
+    ) +
+    theme_abm_minimal() +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank()
+    )
+}
+```
+
+**Interpretation:** The best configuration (price_threshold ~ -0.05, asset_threshold ~ -1.2) achieves the lowest MSE against target enterprise rates of 25-35% across waves. The wide asset threshold indicates that allowing most households to qualify for entry produces more realistic rates.
+
+**Regeneration command:**
+
+```bash
+python3 scripts/run_behavior_search.py --n-candidates 40 --seeds 2
+```
+
 ### Responsible Documentation
 
 Following AI-sourced guidance on avoiding overfitting:
@@ -1207,7 +1294,7 @@ Following AI-sourced guidance on avoiding overfitting:
 1. **Report search space:** Always document parameter ranges explored (see @tbl-search-space)
 2. **Out-of-sample validation:** Validate optimal parameters on held-out data (Ethiopia)
 3. **Robustness check:** Test sensitivity of optimum to small perturbations
-4. **Document computational budget:** Report total number of evaluations
+4. **Document computational budget:** Report total number of evaluations (80 simulations for 40 candidates x 2 seeds)
 
 # Conclusions {#sec-conclusions}
 
@@ -1235,11 +1322,17 @@ Following AI-sourced guidance on avoiding overfitting:
 
 ## Extensions {#sec-extensions}
 
+**Completed (this update):**
+
+1. Parameter sweep script (`scripts/run_sweep.py`) - 6x6 grid with 2 seeds = 72 runs
+2. Behavior search script (`scripts/run_behavior_search.py`) - 40 candidates with objective function
+3. Real heatmap data replacing synthetic placeholders
+
 **Near-term:**
 
-1. Add batch sweep functionality (`abm batch-sweep`) for systematic parameter exploration
-2. Implement Bayesian optimization for automated calibration
-3. Add regime shift detection using `ruptures` package
+1. Implement Bayesian optimization via Optuna for automated calibration
+2. Add regime shift detection using `ruptures` package (RQA diagnostics)
+3. Implement Sobol sensitivity indices using `sensobol` R package
 
 **Medium-term:**
 
@@ -1307,12 +1400,23 @@ This appendix provides a systematic inventory of features, their implementation 
 
 : Implemented features with evidence. {#tbl-evidence-impl}
 
+## Recently Implemented (2026-01-14)
+
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| Parameter sweep | Implemented | `scripts/run_sweep.py` |
+| Behavior search | Implemented | `scripts/run_behavior_search.py` |
+| Sweep data | Generated | `outputs/sweeps/sweep_agg_latest.parquet` |
+| Search data | Generated | `outputs/search/candidates_latest.parquet` |
+
+: Recently implemented features. {#tbl-evidence-recent}
+
 ## Not Implemented
 
 | Feature | Status | Implementation Plan |
 |---------|--------|---------------------|
 | Bayesian optimization | Not impl | Add `optimization/` module with Optuna |
-| Batch sweep CLI | Not impl | Add `abm batch-sweep` command |
+| Sobol sensitivity | Not impl | Add `sensobol` R package integration |
 | Regime shift detection | Not impl | Integrate `ruptures` post-processing |
 | Agent interaction | Not impl | Add network structure to model |
 | Endogenous prices | Not impl | Add price feedback mechanism |
@@ -1518,9 +1622,72 @@ This section documents AI-sourced methodological guidance used in developing thi
 
 : AI guidance verification status. {#tbl-ai-verification}
 
+# Appendix F: Data Provenance and Audit {#sec-appendix-provenance}
+
+## Data Source Classification
+
+All simulation outputs in this report are classified by data source:
+
+| Classification | Code | Description | Use Case |
+|----------------|------|-------------|----------|
+| **LSMS-derived** | `lsms` | Uses `load_derived_targets()` from LSMS-ISA panel | Validated empirical analysis |
+| **Calibrated synthetic** | `calibrated` | Uses `SyntheticPanelGenerator` with `CalibrationArtifact` | Calibrated scenario analysis |
+| **Uncalibrated synthetic** | `synthetic` | Uses `generate_synthetic_households()` directly | Exploratory sensitivity analysis |
+
+: Data source classification schema. {#tbl-data-classification}
+
+## Figure/Table Data Provenance
+
+| Figure/Table | Data Source | Classification | N | Seeds | Notes |
+|--------------|-------------|----------------|---|-------|-------|
+| @fig-baseline-enterprise | `outputs/tanzania/baseline`, `outputs/toy` | MIXED | 500/100 | 42 | Tanzania=LSMS, Toy=synthetic |
+| @fig-classification | `outputs/tanzania/baseline`, `outputs/toy` | MIXED | 500/100 | 42 | |
+| @tbl-path-dependence | `outputs/tanzania/baseline` | LSMS-derived | 500 | 42 | |
+| @fig-robustness | `outputs/batch/seed_*` | Synthetic uncalibrated | 100 | 1-10 | Toy mode |
+| @tbl-robustness-metrics | `outputs/batch/seed_*` | Synthetic uncalibrated | 100 | 1-10 | |
+| @fig-heatmap | `outputs/sweeps/sweep_agg_latest.parquet` | Synthetic uncalibrated | 100 | 42-43 | 6x6 grid |
+| @tbl-search-results | `outputs/search/candidates_latest.parquet` | Synthetic uncalibrated | 100 | 42-43 | 40 candidates |
+| @fig-search-objective | `outputs/search/candidates_latest.parquet` | Synthetic uncalibrated | 100 | 42-43 | |
+
+: Data provenance for all figures and tables. {#tbl-data-provenance}
+
+## Data Integrity Audit
+
+See `docs/DATA_AUDIT.md` for the complete audit report. Key findings:
+
+1. **FLAG 1 (CRITICAL):** Sweep/search use uncalibrated synthetic data, not LSMS-calibrated
+2. **FLAG 2 (HIGH):** LLM policy results not yet generated; report describes design only
+3. **FLAG 3 (MEDIUM):** Inconsistent N values across runs (500 vs 100)
+4. **FLAG 4 (MEDIUM):** Batch runs use toy mode, not baseline configuration
+
+## Replication Requirements
+
+Per AI-sourced methodological guidance (see `docs/research/abm_validation_guidance.md`):
+
+- **Current batch seeds (10):** Insufficient for robust CAS emergence claims
+- **Minimum recommended:** 30-50 replications per parameter setting
+- **Preferred for publication:** 100-500+ replications
+
+Current results should be interpreted as **preliminary** pending additional replications.
+
+## Data Contract Compliance
+
+See `docs/DATA_CONTRACT.md` for the formal data contract. Current compliance status:
+
+| Contract Rule | Status | Notes |
+|---------------|--------|-------|
+| V1: Manifest completeness | ✅ PASS | All runs have manifest.json |
+| V2: Schema compliance | ✅ PASS | All parquet files have required columns |
+| V3: Provenance chain | ⚠️ PARTIAL | Sweep/search configs now include data_source |
+| V4: Seed tracking | ✅ PASS | All runs record seed |
+| V5: Git hash recording | ✅ PASS | All runs record commit hash |
+| V6: No data mixing | ⚠️ PARTIAL | Report sections now clearly demarcated |
+
+: Data contract compliance status. {#tbl-contract-compliance}
+
 ---
 
-*Document generated: 2026-01-13*
+*Document generated: 2026-01-14*
 *Repository: abm-enterprise-coping*
 *Branch: docs/abm-report-fixes*
 *Commit: ec8c6ec + local changes*
