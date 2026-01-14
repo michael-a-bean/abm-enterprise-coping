@@ -669,6 +669,115 @@ def derive_targets(
 
 
 @app.command()
+def calibrate(
+    country: str = typer.Option(
+        "tanzania",
+        "--country",
+        "-c",
+        help="Country code (tanzania or ethiopia)",
+    ),
+    data_dir: Path = typer.Option(
+        Path("data/processed"),
+        "--data-dir",
+        "-d",
+        help="Directory containing processed data",
+    ),
+    output_dir: Path = typer.Option(
+        Path("artifacts/calibration"),
+        "--output-dir",
+        "-o",
+        help="Output directory for calibration artifacts",
+    ),
+    asset_family: str = typer.Option(
+        "normal",
+        "--asset-family",
+        help="Distribution family for assets (normal, lognormal, t)",
+    ),
+    shock_by_wave: bool = typer.Option(
+        False,
+        "--shock-by-wave",
+        help="Fit separate shock distribution per wave",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+) -> None:
+    """Fit calibration distributions from LSMS-derived data.
+
+    Creates calibration.json with fitted distributions for:
+    - Asset distribution (normal, lognormal, or t)
+    - Price shock distribution (pooled or per-wave)
+    - Credit access model (logistic regression)
+    - Enterprise baseline statistics
+    - Transition rates
+
+    The calibration artifact is used to generate synthetic panels
+    that match the distributional characteristics of the real data.
+
+    Example:
+        abm calibrate --country tanzania --data-dir data/processed
+        abm calibrate --country ethiopia --asset-family t --shock-by-wave
+    """
+    from abm_enterprise.calibration import fit_calibration
+
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(level=log_level)
+
+    typer.echo(f"Calibrating distributions for {country}")
+
+    config = {
+        "asset_family": asset_family,
+        "shock_by_wave": shock_by_wave,
+    }
+
+    try:
+        artifact = fit_calibration(
+            country=country,
+            data_dir=data_dir,
+            out_dir=output_dir,
+            config=config,
+        )
+
+        typer.echo(f"\nCalibration complete!")
+        typer.echo(f"  Country: {artifact.country_source}")
+        typer.echo(f"  Households: {artifact.n_households}")
+        typer.echo(f"  Observations: {artifact.n_observations}")
+        typer.echo(f"  Waves: {artifact.waves}")
+
+        typer.echo("\nAssets Distribution:")
+        typer.echo(f"  Family: {artifact.assets_distribution.family.value}")
+        typer.echo(f"  Mean: {artifact.assets_distribution.params.get('mean', 'N/A'):.4f}")
+        typer.echo(f"  Std: {artifact.assets_distribution.params.get('std', 'N/A'):.4f}")
+
+        typer.echo("\nShock Distribution:")
+        typer.echo(f"  Pooled Mean: {artifact.shock_distribution.params['mean']:.4f}")
+        typer.echo(f"  Pooled Std: {artifact.shock_distribution.params['std']:.4f}")
+
+        typer.echo("\nCredit Model:")
+        typer.echo(f"  Intercept: {artifact.credit_model.intercept:.4f}")
+        for feat, coef in artifact.credit_model.coefficients.items():
+            typer.echo(f"  {feat}: {coef:.4f}")
+        typer.echo(f"  Accuracy: {artifact.credit_model.model_metrics.get('accuracy', 'N/A'):.1%}")
+
+        typer.echo("\nEnterprise Baseline:")
+        typer.echo(f"  Prevalence: {artifact.enterprise_baseline.prevalence:.1%}")
+        typer.echo(f"  Entry Rate: {artifact.enterprise_baseline.entry_rate:.1%}")
+        typer.echo(f"  Exit Rate: {artifact.enterprise_baseline.exit_rate:.1%}")
+
+        typer.echo("\nTransition Rates:")
+        typer.echo(f"  Enter: {artifact.transition_rates.enter_count} ({artifact.transition_rates.enter_rate:.1%})")
+        typer.echo(f"  Exit: {artifact.transition_rates.exit_count} ({artifact.transition_rates.exit_rate:.1%})")
+        typer.echo(f"  Stay: {artifact.transition_rates.stay_count} ({artifact.transition_rates.stay_rate:.1%})")
+
+        typer.echo(f"\nArtifact saved to: {output_dir}/{country}/calibration.json")
+
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+    except Exception as e:
+        typer.echo(f"Calibration failed: {e}", err=True)
+        raise typer.Exit(code=1) from None
+
+
+@app.command()
 def info() -> None:
     """Show information about the ABM package."""
     import mesa
@@ -681,6 +790,7 @@ def info() -> None:
     typer.echo("\nAvailable commands:")
     typer.echo("  run-toy          Run with synthetic data")
     typer.echo("  run-sim          Run with real/synthetic data")
+    typer.echo("  calibrate        Fit calibration distributions")
     typer.echo("  ingest-data      Download and process LSMS data")
     typer.echo("  derive-targets   Build derived target tables")
     typer.echo("  validate-schema  Validate outputs")
