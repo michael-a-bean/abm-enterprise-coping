@@ -1,9 +1,11 @@
 ---
 title: "ABM Portability Report: Cross-Country Validation"
+subtitle: "LLM Generalization and Model Portability Testing"
 author: "ABM Enterprise Coping Model"
 date: today
 params:
   data_dir: "../../data/processed"
+  eval_dir: "../../outputs/eval_crosscountry"
   tz_output_dir: "../../outputs/tanzania/baseline"
   eth_output_dir: "../../outputs/ethiopia/baseline"
 format:
@@ -20,13 +22,13 @@ execute:
 
 ## Overview
 
-This report tests the **portability** of the ABM Enterprise Coping Model by comparing
-validation results across Tanzania and Ethiopia.
+This report tests the **portability** and **generalization** capabilities of the ABM Enterprise Coping Model across countries. The key question:
 
-According to the [Validation Contract](../../docs/VALIDATION_CONTRACT.md), portability
-validation requires:
+> **Can LLM decisions and ML baselines trained on Tanzania generalize to Ethiopia?**
 
-> Model calibrated on Tanzania, tested on Ethiopia: Sign preservation on all main effects
+According to the [Validation Contract](../../docs/VALIDATION_CONTRACT.md), portability validation requires:
+- Sign preservation on all main effects across countries
+- LLM generalization: predictions should not degrade significantly on unseen country
 
 ```{r setup}
 #| message: false
@@ -40,6 +42,7 @@ library(fixest)
 library(gt)
 library(scales)
 library(patchwork)
+library(jsonlite)
 
 # Source helper functions
 source("../R/read_simulation.R")
@@ -58,7 +61,7 @@ format_status <- function(pass) {
 ```{r load-data}
 #| message: false
 
-# Load Tanzania data
+# Load Tanzania empirical targets
 tz_targets <- tryCatch({
   read_derived_targets(params$data_dir, "tanzania")
 }, error = function(e) {
@@ -66,7 +69,7 @@ tz_targets <- tryCatch({
   NULL
 })
 
-# Load Ethiopia data
+# Load Ethiopia empirical targets
 eth_targets <- tryCatch({
   read_derived_targets(params$data_dir, "ethiopia")
 }, error = function(e) {
@@ -74,24 +77,40 @@ eth_targets <- tryCatch({
   NULL
 })
 
-# Try to load simulation outputs if available
-tz_sim <- tryCatch({
-  read_simulation(params$tz_output_dir)
+# Load cross-country evaluation results
+cross_country_predictions <- tryCatch({
+  arrow::read_parquet(file.path(params$eval_dir, "predictions.parquet"))
+}, error = function(e) {
+  message("Cross-country predictions not found: ", e$message)
+  NULL
+})
+
+cross_country_metrics <- tryCatch({
+  jsonlite::fromJSON(file.path(params$eval_dir, "metrics.json"))
+}, error = function(e) {
+  message("Cross-country metrics not found: ", e$message)
+  NULL
+})
+
+cross_country_comparison <- tryCatch({
+  read.csv(file.path(params$eval_dir, "model_comparison.csv"))
+}, error = function(e) {
+  message("Cross-country comparison not found: ", e$message)
+  NULL
+})
+
+# Load same-country (Tanzania) evaluation for comparison
+tz_eval_comparison <- tryCatch({
+  read.csv(file.path(dirname(params$eval_dir), "eval_tanzania", "model_comparison.csv"))
 }, error = function(e) {
   NULL
 })
 
-eth_sim <- tryCatch({
-  read_simulation(params$eth_output_dir)
-}, error = function(e) {
-  NULL
-})
-
-# Check what data is available
+# Check data availability
 has_tz_targets <- !is.null(tz_targets)
 has_eth_targets <- !is.null(eth_targets)
-has_tz_sim <- !is.null(tz_sim)
-has_eth_sim <- !is.null(eth_sim)
+has_cross_country_eval <- !is.null(cross_country_comparison)
+has_tz_eval <- !is.null(tz_eval_comparison)
 ```
 
 ## 1. Data Availability
@@ -101,16 +120,20 @@ has_eth_sim <- !is.null(eth_sim)
 #| tbl-cap: "Data Availability Summary"
 
 availability_df <- data.frame(
-  Country = c("Tanzania", "Ethiopia"),
-  `Empirical Targets` = c(
+  Data = c("Tanzania Targets", "Ethiopia Targets",
+           "Cross-Country Evaluation", "Tanzania Evaluation (Reference)"),
+  Status = c(
     if (has_tz_targets) "Available" else "Missing",
-    if (has_eth_targets) "Available" else "Missing"
+    if (has_eth_targets) "Available" else "Missing",
+    if (has_cross_country_eval) "Available" else "Missing",
+    if (has_tz_eval) "Available" else "Missing"
   ),
-  `Simulation Output` = c(
-    if (has_tz_sim) "Available" else "Missing",
-    if (has_eth_sim) "Available" else "Missing"
-  ),
-  check.names = FALSE
+  Description = c(
+    "LSMS-ISA derived targets (4 waves)",
+    "LSMS-ISA derived targets (3 waves)",
+    "LLM predictions on Ethiopia with baselines trained on Tanzania",
+    "LLM predictions on Tanzania for comparison"
+  )
 )
 
 availability_df |>
@@ -121,16 +144,214 @@ availability_df |>
   )
 ```
 
-## 2. Empirical Data Comparison
+# Part 1: Cross-Country LLM Generalization {.tabset}
 
-### 2.1 Sample Statistics
+This section tests whether LLM decisions generalize across countries. The key advantage of LLMs is that they may generalize better than ML baselines trained on country-specific data.
+
+## 1.1 Generalization Comparison
+
+```{r generalization-comparison}
+#| label: tbl-generalization
+#| tbl-cap: "LLM vs ML Baseline Generalization"
+
+if (has_cross_country_eval && has_tz_eval) {
+  # Prepare comparison data
+  llm_tz <- tz_eval_comparison |>
+    dplyr::filter(grepl("llm", model, ignore.case = TRUE)) |>
+    dplyr::slice(1) |>
+    dplyr::mutate(context = "Same-Country (TZ→TZ)")
+
+  llm_cross <- cross_country_comparison |>
+    dplyr::filter(grepl("llm", model, ignore.case = TRUE)) |>
+    dplyr::slice(1) |>
+    dplyr::mutate(context = "Cross-Country (TZ→ETH)")
+
+  best_ml_tz <- tz_eval_comparison |>
+    dplyr::filter(!grepl("llm", model, ignore.case = TRUE)) |>
+    dplyr::arrange(desc(macro_f1)) |>
+    dplyr::slice(1) |>
+    dplyr::mutate(context = "Same-Country (TZ→TZ)")
+
+  best_ml_cross <- cross_country_comparison |>
+    dplyr::filter(!grepl("llm", model, ignore.case = TRUE)) |>
+    dplyr::arrange(desc(macro_f1)) |>
+    dplyr::slice(1) |>
+    dplyr::mutate(context = "Cross-Country (TZ→ETH)")
+
+  # Combine for comparison
+  gen_comparison <- bind_rows(
+    llm_tz |> dplyr::mutate(model_type = "LLM"),
+    llm_cross |> dplyr::mutate(model_type = "LLM"),
+    best_ml_tz |> dplyr::mutate(model_type = paste0("Best ML (", model, ")")),
+    best_ml_cross |> dplyr::mutate(model_type = paste0("Best ML (", model, ")"))
+  )
+
+  gen_comparison |>
+    dplyr::select(
+      `Model Type` = model_type,
+      Context = context,
+      Accuracy = accuracy,
+      `Balanced Acc.` = balanced_accuracy,
+      `Macro F1` = macro_f1,
+      `F1 ENTER` = f1_ENTER,
+      `F1 EXIT` = f1_EXIT,
+      `F1 STAY` = f1_STAY
+    ) |>
+    dplyr::mutate(
+      across(c(Accuracy, `Balanced Acc.`, `Macro F1`, `F1 ENTER`, `F1 EXIT`, `F1 STAY`),
+             ~round(., 3))
+    ) |>
+    gt::gt() |>
+    gt::tab_header(
+      title = "Cross-Country Generalization Comparison",
+      subtitle = "LLM vs ML Baselines: Same-Country vs Cross-Country"
+    ) |>
+    gt::tab_row_group(
+      label = "Cross-Country (Train: Tanzania → Test: Ethiopia)",
+      rows = Context == "Cross-Country (TZ→ETH)"
+    ) |>
+    gt::tab_row_group(
+      label = "Same-Country (Train & Test: Tanzania)",
+      rows = Context == "Same-Country (TZ→TZ)"
+    ) |>
+    gt::tab_footnote(
+      footnote = "LLM requires no training data. ML baselines were trained on Tanzania.",
+      locations = gt::cells_column_labels(columns = `Model Type`)
+    )
+} else if (has_cross_country_eval) {
+  cross_country_comparison |>
+    dplyr::arrange(desc(macro_f1)) |>
+    dplyr::mutate(
+      rank = row_number(),
+      across(c(accuracy, balanced_accuracy, macro_f1, weighted_f1,
+               f1_ENTER, f1_EXIT, f1_STAY), ~round(., 3))
+    ) |>
+    dplyr::select(Rank = rank, Model = model, Accuracy = accuracy,
+                  `Macro F1` = macro_f1,
+                  `F1 ENTER` = f1_ENTER, `F1 EXIT` = f1_EXIT, `F1 STAY` = f1_STAY) |>
+    gt::gt() |>
+    gt::tab_header(
+      title = "Cross-Country Model Performance",
+      subtitle = "Trained on Tanzania, Tested on Ethiopia"
+    )
+} else {
+  cat("Cross-country evaluation results not available. Run eval-direct with cross-country configuration first.\n")
+}
+```
+
+## 1.2 Generalization Gap Analysis
+
+```{r generalization-gap}
+#| label: fig-generalization-gap
+#| fig-cap: "Generalization Gap: Performance Drop from Same-Country to Cross-Country"
+
+if (has_cross_country_eval && has_tz_eval) {
+  # Calculate performance drop for each model
+  gap_data <- bind_rows(
+    # LLM
+    data.frame(
+      model = "LLM",
+      same_country = llm_tz$macro_f1,
+      cross_country = llm_cross$macro_f1,
+      gap = llm_tz$macro_f1 - llm_cross$macro_f1
+    ),
+    # Best ML
+    data.frame(
+      model = best_ml_tz$model,
+      same_country = best_ml_tz$macro_f1,
+      cross_country = best_ml_cross$macro_f1,
+      gap = best_ml_tz$macro_f1 - best_ml_cross$macro_f1
+    )
+  )
+
+  # Add all ML baselines from cross-country
+  ml_baselines <- cross_country_comparison |>
+    dplyr::filter(!grepl("llm", model, ignore.case = TRUE))
+
+  if (nrow(ml_baselines) > 0) {
+    for (i in seq_len(nrow(ml_baselines))) {
+      ml_name <- ml_baselines$model[i]
+      tz_match <- tz_eval_comparison |> dplyr::filter(model == ml_name)
+      if (nrow(tz_match) > 0) {
+        gap_data <- bind_rows(gap_data, data.frame(
+          model = ml_name,
+          same_country = tz_match$macro_f1,
+          cross_country = ml_baselines$macro_f1[i],
+          gap = tz_match$macro_f1 - ml_baselines$macro_f1[i]
+        ))
+      }
+    }
+    gap_data <- gap_data |> distinct(model, .keep_all = TRUE)
+  }
+
+  # Plot
+  ggplot(gap_data, aes(x = reorder(model, -gap), y = gap, fill = model == "LLM")) +
+    geom_col(alpha = 0.8) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+    scale_fill_manual(values = c("TRUE" = "steelblue", "FALSE" = "gray60"),
+                      labels = c("TRUE" = "LLM", "FALSE" = "ML Baseline")) +
+    labs(
+      title = "Generalization Gap by Model",
+      subtitle = "Smaller gap = Better cross-country generalization",
+      x = "Model",
+      y = "Performance Drop (Same-Country - Cross-Country F1)",
+      fill = "Model Type"
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "bottom"
+    ) +
+    coord_flip()
+} else {
+  cat("Generalization gap analysis requires both same-country and cross-country evaluation results.\n")
+}
+```
+
+## 1.3 Per-Class Generalization
+
+```{r per-class-generalization}
+#| label: fig-per-class-gen
+#| fig-cap: "Per-Class F1 Scores: Same-Country vs Cross-Country"
+
+if (has_cross_country_eval && has_tz_eval) {
+  # Prepare per-class comparison for LLM
+  per_class_data <- data.frame(
+    class = rep(c("ENTER", "EXIT", "STAY"), 2),
+    context = c(rep("Same-Country", 3), rep("Cross-Country", 3)),
+    f1_score = c(
+      llm_tz$f1_ENTER, llm_tz$f1_EXIT, llm_tz$f1_STAY,
+      llm_cross$f1_ENTER, llm_cross$f1_EXIT, llm_cross$f1_STAY
+    )
+  )
+
+  ggplot(per_class_data, aes(x = class, y = f1_score, fill = context)) +
+    geom_col(position = position_dodge(width = 0.8), alpha = 0.8, width = 0.7) +
+    geom_text(aes(label = sprintf("%.2f", f1_score)),
+              position = position_dodge(width = 0.8), vjust = -0.3, size = 3) +
+    scale_y_continuous(limits = c(0, 1), expand = expansion(mult = c(0, 0.1))) +
+    scale_fill_manual(values = c("Same-Country" = "steelblue", "Cross-Country" = "darkgreen")) +
+    labs(
+      title = "LLM Per-Class F1: Same-Country vs Cross-Country",
+      subtitle = "Testing generalization on each transition type",
+      x = "Transition Class",
+      y = "F1 Score",
+      fill = "Evaluation Context"
+    ) +
+    theme(legend.position = "bottom")
+} else {
+  cat("Per-class generalization analysis requires both evaluation results.\n")
+}
+```
+
+# Part 2: Empirical Data Comparison {.tabset}
+
+## 2.1 Sample Statistics
 
 ```{r sample-stats}
 #| label: tbl-sample-stats
 #| tbl-cap: "Sample Statistics by Country"
 
 if (has_tz_targets && has_eth_targets) {
-  # Tanzania stats
   tz_stats <- data.frame(
     Country = "Tanzania",
     `N Households` = length(unique(tz_targets$household_id)),
@@ -141,7 +362,6 @@ if (has_tz_targets && has_eth_targets) {
     check.names = FALSE
   )
 
-  # Ethiopia stats
   eth_stats <- data.frame(
     Country = "Ethiopia",
     `N Households` = length(unique(eth_targets$household_id)),
@@ -157,19 +377,18 @@ if (has_tz_targets && has_eth_targets) {
     gt::fmt_number(columns = c(`Enterprise Rate`, `Mean Price Exposure`), decimals = 3) |>
     gt::tab_header(
       title = "Sample Statistics",
-      subtitle = "Empirical data comparison"
+      subtitle = "LSMS-ISA empirical data comparison"
     )
 } else {
   cat("Requires both Tanzania and Ethiopia empirical data.\n")
 }
 ```
 
-### 2.2 Enterprise Rate Distribution
+## 2.2 Enterprise Rate Distribution
 
 ```{r plot-enterprise-rates}
 #| label: fig-enterprise-rates
 #| fig-cap: "Enterprise Rates by Country and Wave"
-#| fig-height: 5
 
 if (has_tz_targets && has_eth_targets) {
   tz_by_wave <- tz_targets |>
@@ -208,35 +427,9 @@ if (has_tz_targets && has_eth_targets) {
 }
 ```
 
-### 2.3 Price Exposure Distribution
+# Part 3: Regression-Based Portability {.tabset}
 
-```{r plot-price-distributions}
-#| label: fig-price-distributions
-#| fig-cap: "Price Exposure Distributions by Country"
-#| fig-height: 4
-
-if (has_tz_targets && has_eth_targets) {
-  price_data <- bind_rows(
-    tz_targets |> select(price_exposure) |> mutate(country = "Tanzania"),
-    eth_targets |> select(price_exposure) |> mutate(country = "Ethiopia")
-  )
-
-  ggplot(price_data, aes(x = price_exposure, fill = country)) +
-    geom_density(alpha = 0.5) +
-    scale_fill_manual(values = c("Tanzania" = "steelblue", "Ethiopia" = "darkgreen")) +
-    labs(
-      title = "Price Exposure Distribution",
-      x = "Price Exposure",
-      y = "Density",
-      fill = "Country"
-    ) +
-    theme(legend.position = "bottom")
-}
-```
-
-## 3. Regression Analysis on Empirical Data
-
-### 3.1 Primary Estimand
+## 3.1 Primary Estimand
 
 Running the primary fixed effects regression on empirical data from each country:
 
@@ -247,7 +440,6 @@ $$\text{enterprise}_{it} = \beta_1 \times \text{price\_exposure}_{it} + \alpha_i
 #| tbl-cap: "Primary Estimand Comparison"
 
 if (has_tz_targets && has_eth_targets) {
-  # Run regressions on empirical data
   tz_primary <- run_fe_regression(tz_targets, return_results = TRUE)
   eth_primary <- run_fe_regression(eth_targets, return_results = TRUE)
 
@@ -258,7 +450,6 @@ if (has_tz_targets && has_eth_targets) {
     `t-statistic` = c(tz_primary$t_statistic, eth_primary$t_statistic),
     `P-value` = c(tz_primary$p_value, eth_primary$p_value),
     `Sign Correct` = c(tz_primary$sign_match, eth_primary$sign_match),
-    `Pass` = c(tz_primary$pass, eth_primary$pass),
     check.names = FALSE
   )
 
@@ -271,11 +462,12 @@ if (has_tz_targets && has_eth_targets) {
       subtitle = "Target: beta_1 < 0 (negative price shocks increase enterprise)"
     )
 } else {
+  tz_primary <- eth_primary <- list(coefficient = NA, std_error = NA, sign_match = NA)
   cat("Requires both Tanzania and Ethiopia empirical data.\n")
 }
 ```
 
-### 3.2 Asset Interaction
+## 3.2 Asset Interaction
 
 ```{r regression-assets}
 #| label: tbl-regression-assets
@@ -291,7 +483,6 @@ if (has_tz_targets && has_eth_targets) {
     `Std. Error` = c(tz_assets$std_error, eth_assets$std_error),
     `P-value` = c(tz_assets$p_value, eth_assets$p_value),
     `Sign Correct` = c(tz_assets$sign_match, eth_assets$sign_match),
-    `Pass` = c(tz_assets$pass, eth_assets$pass),
     check.names = FALSE
   )
 
@@ -303,10 +494,12 @@ if (has_tz_targets && has_eth_targets) {
       title = "Asset Interaction Effect",
       subtitle = "Target: beta_2 < 0 (low-asset households more responsive)"
     )
+} else {
+  tz_assets <- eth_assets <- list(coefficient = NA, std_error = NA, sign_match = NA)
 }
 ```
 
-### 3.3 Credit Interaction
+## 3.3 Credit Interaction
 
 ```{r regression-credit}
 #| label: tbl-regression-credit
@@ -322,7 +515,6 @@ if (has_tz_targets && has_eth_targets) {
     `Std. Error` = c(tz_credit$std_error, eth_credit$std_error),
     `P-value` = c(tz_credit$p_value, eth_credit$p_value),
     `Sign Correct` = c(tz_credit$sign_match, eth_credit$sign_match),
-    `Pass` = c(tz_credit$pass, eth_credit$pass),
     check.names = FALSE
   )
 
@@ -334,33 +526,26 @@ if (has_tz_targets && has_eth_targets) {
       title = "Credit Interaction Effect",
       subtitle = "Target: beta_2 < 0 (credit-constrained households more responsive)"
     )
+} else {
+  tz_credit <- eth_credit <- list(coefficient = NA, std_error = NA, sign_match = NA)
 }
 ```
 
-## 4. Coefficient Comparison
+## 3.4 Coefficient Comparison Plot
 
 ```{r coefficient-plot}
 #| label: fig-coefficient-comparison
 #| fig-cap: "Coefficient Comparison Across Countries"
-#| fig-height: 5
 
 if (has_tz_targets && has_eth_targets) {
   coef_data <- data.frame(
     coefficient = c("Primary (price_exposure)",
                    "Asset Interaction",
                    "Credit Interaction"),
-    Tanzania = c(tz_primary$coefficient,
-                tz_assets$coefficient,
-                tz_credit$coefficient),
-    Ethiopia = c(eth_primary$coefficient,
-                eth_assets$coefficient,
-                eth_credit$coefficient),
-    Tanzania_SE = c(tz_primary$std_error,
-                   tz_assets$std_error,
-                   tz_credit$std_error),
-    Ethiopia_SE = c(eth_primary$std_error,
-                   eth_assets$std_error,
-                   eth_credit$std_error)
+    Tanzania = c(tz_primary$coefficient, tz_assets$coefficient, tz_credit$coefficient),
+    Ethiopia = c(eth_primary$coefficient, eth_assets$coefficient, eth_credit$coefficient),
+    Tanzania_SE = c(tz_primary$std_error, tz_assets$std_error, tz_credit$std_error),
+    Ethiopia_SE = c(eth_primary$std_error, eth_assets$std_error, eth_credit$std_error)
   )
 
   coef_long <- coef_data |>
@@ -394,166 +579,175 @@ if (has_tz_targets && has_eth_targets) {
       y = "Coefficient Estimate",
       color = "Country"
     ) +
-    theme(
-      axis.text.x = element_text(angle = 15, hjust = 1),
-      legend.position = "bottom"
-    ) +
+    theme(legend.position = "bottom") +
     coord_flip()
 }
 ```
 
-## 5. Classification Comparison
+# Part 4: Summary {.tabset}
 
-```{r classification-comparison}
-#| label: tbl-classification
-#| tbl-cap: "Stayer/Coper Classification by Country"
-
-if (has_tz_targets && has_eth_targets) {
-  tz_class <- get_classification_summary(tz_targets) |>
-    mutate(country = "Tanzania")
-
-  eth_class <- get_classification_summary(eth_targets) |>
-    mutate(country = "Ethiopia")
-
-  class_data <- bind_rows(tz_class, eth_class)
-
-  class_data |>
-    pivot_wider(
-      names_from = country,
-      values_from = c(n, proportion)
-    ) |>
-    gt::gt() |>
-    gt::fmt_percent(columns = starts_with("proportion"), decimals = 1) |>
-    gt::tab_header(
-      title = "Household Classification",
-      subtitle = "Stayer/Coper/None proportions by country"
-    )
-}
-```
-
-```{r plot-classification}
-#| label: fig-classification
-#| fig-cap: "Classification Distribution by Country"
-#| fig-height: 4
-
-if (has_tz_targets && has_eth_targets) {
-  ggplot(class_data, aes(x = classification, y = proportion, fill = country)) +
-    geom_col(position = position_dodge(width = 0.8), alpha = 0.8, width = 0.7) +
-    geom_text(aes(label = sprintf("%.1f%%", proportion * 100)),
-              position = position_dodge(width = 0.8), vjust = -0.3, size = 3) +
-    scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.15))) +
-    scale_fill_manual(values = c("Tanzania" = "steelblue", "Ethiopia" = "darkgreen")) +
-    labs(
-      title = "Classification Distribution by Country",
-      x = "Classification",
-      y = "Proportion",
-      fill = "Country"
-    ) +
-    theme(legend.position = "bottom")
-}
-```
-
-## 6. Portability Summary
+## 4.1 Combined Portability Summary
 
 ```{r portability-summary}
 #| label: tbl-portability-summary
-#| tbl-cap: "Portability Validation Summary"
+#| tbl-cap: "Combined Portability Validation Summary"
 
+summary_rows <- list()
+
+# LLM Generalization (if available)
+if (has_cross_country_eval && has_tz_eval) {
+  llm_gap <- llm_tz$macro_f1 - llm_cross$macro_f1
+  ml_gap <- best_ml_tz$macro_f1 - best_ml_cross$macro_f1
+
+  summary_rows[[length(summary_rows) + 1]] <- data.frame(
+    Test = "LLM Generalization Gap",
+    Value = sprintf("%.3f (same: %.3f, cross: %.3f)", llm_gap, llm_tz$macro_f1, llm_cross$macro_f1),
+    Criterion = "< 0.10",
+    Status = format_status(llm_gap < 0.10)
+  )
+
+  summary_rows[[length(summary_rows) + 1]] <- data.frame(
+    Test = "LLM vs ML Generalization",
+    Value = sprintf("LLM gap: %.3f, ML gap: %.3f", llm_gap, ml_gap),
+    Criterion = "LLM gap <= ML gap",
+    Status = format_status(llm_gap <= ml_gap)
+  )
+
+  summary_rows[[length(summary_rows) + 1]] <- data.frame(
+    Test = "LLM Cross-Country F1",
+    Value = sprintf("%.3f", llm_cross$macro_f1),
+    Criterion = "> 0.30",
+    Status = format_status(llm_cross$macro_f1 > 0.30)
+  )
+}
+
+# Regression-based portability (if available)
 if (has_tz_targets && has_eth_targets) {
-  # Check sign preservation
   sign_preserved_primary <- (tz_primary$coefficient < 0) == (eth_primary$coefficient < 0)
   sign_preserved_assets <- (tz_assets$coefficient < 0) == (eth_assets$coefficient < 0)
   sign_preserved_credit <- (tz_credit$coefficient < 0) == (eth_credit$coefficient < 0)
 
-  portability_df <- data.frame(
-    Test = c("Primary Effect Sign",
-             "Asset Interaction Sign",
-             "Credit Interaction Sign",
-             "Overall Portability"),
-    `Tanzania Sign` = c(
-      if (tz_primary$coefficient < 0) "Negative" else "Positive",
-      if (tz_assets$coefficient < 0) "Negative" else "Positive",
-      if (tz_credit$coefficient < 0) "Negative" else "Positive",
-      ""
-    ),
-    `Ethiopia Sign` = c(
-      if (eth_primary$coefficient < 0) "Negative" else "Positive",
-      if (eth_assets$coefficient < 0) "Negative" else "Positive",
-      if (eth_credit$coefficient < 0) "Negative" else "Positive",
-      ""
-    ),
-    `Sign Preserved` = c(
-      format_status(sign_preserved_primary),
-      format_status(sign_preserved_assets),
-      format_status(sign_preserved_credit),
-      format_status(sign_preserved_primary && sign_preserved_assets && sign_preserved_credit)
-    ),
-    check.names = FALSE
+  summary_rows[[length(summary_rows) + 1]] <- data.frame(
+    Test = "Primary Effect Sign Preservation",
+    Value = sprintf("TZ: %s, ETH: %s",
+                    if (tz_primary$coefficient < 0) "-" else "+",
+                    if (eth_primary$coefficient < 0) "-" else "+"),
+    Criterion = "Same sign",
+    Status = format_status(sign_preserved_primary)
   )
 
-  portability_df |>
+  summary_rows[[length(summary_rows) + 1]] <- data.frame(
+    Test = "Asset Interaction Sign Preservation",
+    Value = sprintf("TZ: %s, ETH: %s",
+                    if (tz_assets$coefficient < 0) "-" else "+",
+                    if (eth_assets$coefficient < 0) "-" else "+"),
+    Criterion = "Same sign",
+    Status = format_status(sign_preserved_assets)
+  )
+
+  summary_rows[[length(summary_rows) + 1]] <- data.frame(
+    Test = "Credit Interaction Sign Preservation",
+    Value = sprintf("TZ: %s, ETH: %s",
+                    if (tz_credit$coefficient < 0) "-" else "+",
+                    if (eth_credit$coefficient < 0) "-" else "+"),
+    Criterion = "Same sign",
+    Status = format_status(sign_preserved_credit)
+  )
+}
+
+if (length(summary_rows) > 0) {
+  summary_df <- do.call(rbind, summary_rows)
+
+  summary_df |>
     gt::gt() |>
     gt::tab_header(
-      title = "Portability Validation",
-      subtitle = "Model trained on Tanzania, tested on Ethiopia"
+      title = "Portability Validation Summary",
+      subtitle = "Cross-Country Generalization Assessment"
     ) |>
     gt::tab_style(
       style = list(gt::cell_fill(color = "#d4edda")),
-      locations = gt::cells_body(columns = `Sign Preserved`, rows = `Sign Preserved` == "PASS")
+      locations = gt::cells_body(columns = Status, rows = Status == "PASS")
     ) |>
     gt::tab_style(
       style = list(gt::cell_fill(color = "#f8d7da")),
-      locations = gt::cells_body(columns = `Sign Preserved`, rows = `Sign Preserved` == "FAIL")
+      locations = gt::cells_body(columns = Status, rows = Status == "FAIL")
     ) |>
     gt::tab_style(
-      style = list(gt::cell_text(weight = "bold")),
-      locations = gt::cells_body(rows = Test == "Overall Portability")
+      style = list(gt::cell_fill(color = "#e2e3e5")),
+      locations = gt::cells_body(columns = Status, rows = Status == "N/A")
     )
+} else {
+  cat("No portability validation results available.\n")
 }
 ```
 
-## 7. Conclusions
+## 4.2 Conclusions
 
 ```{r conclusions}
 #| results: hold
 
-if (has_tz_targets && has_eth_targets) {
-  cat("=== PORTABILITY VALIDATION SUMMARY ===\n\n")
+cat("=== PORTABILITY VALIDATION SUMMARY ===\n\n")
 
-  # Sign preservation
+# LLM generalization summary
+if (has_cross_country_eval && has_tz_eval) {
+  llm_gap <- llm_tz$macro_f1 - llm_cross$macro_f1
+  ml_gap <- best_ml_tz$macro_f1 - best_ml_cross$macro_f1
+
+  cat("LLM GENERALIZATION:\n")
+  cat(sprintf("  - Same-Country F1: %.3f\n", llm_tz$macro_f1))
+  cat(sprintf("  - Cross-Country F1: %.3f\n", llm_cross$macro_f1))
+  cat(sprintf("  - Generalization Gap: %.3f\n", llm_gap))
+  cat(sprintf("  - Best ML Gap: %.3f\n", ml_gap))
+  cat(sprintf("  - LLM Generalizes Better: %s\n\n",
+              if (llm_gap <= ml_gap) "YES" else "NO"))
+}
+
+# Regression-based summary
+if (has_tz_targets && has_eth_targets) {
   sign_preserved_primary <- (tz_primary$coefficient < 0) == (eth_primary$coefficient < 0)
   sign_preserved_assets <- (tz_assets$coefficient < 0) == (eth_assets$coefficient < 0)
   sign_preserved_credit <- (tz_credit$coefficient < 0) == (eth_credit$coefficient < 0)
   all_signs_preserved <- sign_preserved_primary && sign_preserved_assets && sign_preserved_credit
 
-  cat("Sign Preservation (Required):\n")
-  cat(sprintf("  - Primary Effect: %s\n", format_status(sign_preserved_primary)))
-  cat(sprintf("  - Asset Interaction: %s\n", format_status(sign_preserved_assets)))
-  cat(sprintf("  - Credit Interaction: %s\n", format_status(sign_preserved_credit)))
+  cat("REGRESSION-BASED PORTABILITY:\n")
+  cat(sprintf("  - Primary Effect Sign: %s\n", format_status(sign_preserved_primary)))
+  cat(sprintf("  - Asset Interaction Sign: %s\n", format_status(sign_preserved_assets)))
+  cat(sprintf("  - Credit Interaction Sign: %s\n", format_status(sign_preserved_credit)))
+  cat(sprintf("  - All Signs Preserved: %s\n\n", format_status(all_signs_preserved)))
+}
 
-  cat("\nCoefficient Magnitudes:\n")
-  cat(sprintf("  - Primary: TZ=%.4f, ETH=%.4f (ratio=%.2f)\n",
-              tz_primary$coefficient, eth_primary$coefficient,
-              abs(eth_primary$coefficient / tz_primary$coefficient)))
-  cat(sprintf("  - Assets: TZ=%.4f, ETH=%.4f (ratio=%.2f)\n",
-              tz_assets$coefficient, eth_assets$coefficient,
-              abs(eth_assets$coefficient / tz_assets$coefficient)))
-  cat(sprintf("  - Credit: TZ=%.4f, ETH=%.4f (ratio=%.2f)\n",
-              tz_credit$coefficient, eth_credit$coefficient,
-              abs(eth_credit$coefficient / tz_credit$coefficient)))
-
-  cat(sprintf("\n=== OVERALL PORTABILITY STATUS: %s ===\n",
-              if (all_signs_preserved) "PASS" else "FAIL"))
-
-  if (all_signs_preserved) {
-    cat("\nThe model shows good portability: all coefficient signs are preserved\n")
-    cat("across countries, indicating the core mechanisms generalize.\n")
-  } else {
-    cat("\nPortability concerns: some coefficient signs differ between countries.\n")
-    cat("Review country-specific assumptions and mechanisms.\n")
-  }
+# Overall assessment
+llm_portable <- if (has_cross_country_eval && has_tz_eval) {
+  llm_gap < 0.10 && llm_cross$macro_f1 > 0.30
 } else {
-  cat("Portability validation requires empirical data from both Tanzania and Ethiopia.\n")
+  NA
+}
+
+regression_portable <- if (has_tz_targets && has_eth_targets) {
+  all_signs_preserved
+} else {
+  NA
+}
+
+if (!is.na(llm_portable) && !is.na(regression_portable)) {
+  overall <- llm_portable && regression_portable
+  cat(sprintf("=== OVERALL PORTABILITY STATUS: %s ===\n", if (overall) "PASS" else "NEEDS REVIEW"))
+} else if (!is.na(llm_portable)) {
+  cat(sprintf("=== LLM GENERALIZATION: %s ===\n", if (llm_portable) "PASS" else "FAIL"))
+} else if (!is.na(regression_portable)) {
+  cat(sprintf("=== REGRESSION PORTABILITY: %s ===\n", if (regression_portable) "PASS" else "FAIL"))
+}
+
+cat("\n")
+if (has_cross_country_eval && has_tz_eval) {
+  if (llm_gap <= ml_gap) {
+    cat("KEY FINDING: LLM shows equal or better generalization than ML baselines.\n")
+    cat("This suggests LLM decisions may capture more fundamental patterns\n")
+    cat("that transfer across contexts without overfitting to country-specific data.\n")
+  } else {
+    cat("NOTE: ML baselines show better generalization than LLM.\n")
+    cat("Consider investigating LLM prompt design or decision patterns.\n")
+  }
 }
 ```
 

@@ -363,6 +363,7 @@ class LLMPolicyConfig(BaseModel):
 
     Attributes:
         model: LLM model identifier (e.g., 'o4-mini', 'gpt-4o-mini').
+        model_version: Pinned model version for reproducibility (Gemini recommendation).
         temperature: Sampling temperature (0-2).
         k_samples: Number of samples to generate per decision.
         max_tokens: Maximum tokens in each response.
@@ -372,9 +373,15 @@ class LLMPolicyConfig(BaseModel):
         cache_enabled: Whether to cache decisions.
         tie_break: Action for tie-breaking.
         tie_break_strategy: Strategy for breaking ties.
+        early_stopping_enabled: Enable early stopping when samples agree (Gemini recommendation).
+        early_stopping_threshold: Number of consecutive agreeing samples to trigger early stop.
     """
 
     model: str = Field(default="gpt-4o-mini", description="LLM model ID")
+    model_version: str | None = Field(
+        default=None,
+        description="Pinned model version (e.g., 'gpt-4o-mini-2024-07-18') for reproducibility",
+    )
     temperature: float = Field(
         default=0.6, ge=0.0, le=2.0, description="Sampling temperature"
     )
@@ -393,11 +400,26 @@ class LLMPolicyConfig(BaseModel):
         default=TieBreakStrategy.CONSERVATIVE,
         description="Tie-break strategy",
     )
+    # Early stopping optimization (Gemini recommendation)
+    early_stopping_enabled: bool = Field(
+        default=True,
+        description="Stop sampling early if first N samples agree",
+    )
+    early_stopping_threshold: int = Field(
+        default=3,
+        ge=2,
+        le=10,
+        description="Number of consecutive agreeing samples to trigger early stop",
+    )
 
     def to_config_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for hashing."""
+        """Convert to dictionary for hashing.
+
+        Includes model_version for cache key stability (Gemini recommendation).
+        """
         return {
             "model": self.model,
+            "model_version": self.model_version,  # Pin model version in hash
             "temperature": self.temperature,
             "k_samples": self.k_samples,
             "max_tokens": self.max_tokens,
@@ -517,11 +539,12 @@ class MultiSampleLLMPolicy(BasePolicy):
             )
             return cached_result.final_action
 
-        # Generate K samples
+        # Generate K samples with early stopping (Gemini recommendation)
         prompt = build_prompt(state, self.prompt_config)
         samples = []
         sample_responses = []
         total_latency_ms = 0.0
+        early_stopped = False
 
         for i in range(self.config.k_samples):
             try:
@@ -543,6 +566,25 @@ class MultiSampleLLMPolicy(BasePolicy):
                 else:
                     # Parse failed
                     samples.append(self.config.fallback_action)
+
+                # Early stopping check (Gemini recommendation for cost optimization)
+                if (
+                    self.config.early_stopping_enabled
+                    and len(samples) >= self.config.early_stopping_threshold
+                ):
+                    # Check if all samples so far agree
+                    threshold = self.config.early_stopping_threshold
+                    recent_samples = samples[-threshold:]
+                    if len(set(recent_samples)) == 1:
+                        # All recent samples agree - stop early
+                        early_stopped = True
+                        logger.debug(
+                            "Early stopping triggered",
+                            n_samples=len(samples),
+                            threshold=threshold,
+                            agreed_action=recent_samples[0].value,
+                        )
+                        break
 
             except Exception as e:
                 logger.warning(
@@ -575,7 +617,11 @@ class MultiSampleLLMPolicy(BasePolicy):
             state_hash=state_hash,
             config_hash=self._config_hash,
             vote_result=vote_result,
-            metadata={"n_responses": len(sample_responses)},
+            metadata={
+                "n_responses": len(sample_responses),
+                "early_stopped": early_stopped,
+                "k_requested": self.config.k_samples,
+            },
         )
 
         # Log decision

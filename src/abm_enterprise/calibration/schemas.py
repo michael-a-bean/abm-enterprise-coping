@@ -22,12 +22,85 @@ class DistributionFamily(str, Enum):
     SKEW_NORMAL = "skew_normal"
 
 
+class CopulaType(str, Enum):
+    """Supported copula families for dependence structure."""
+
+    GAUSSIAN = "gaussian"
+    STUDENT_T = "student_t"
+    CLAYTON = "clayton"
+    FRANK = "frank"
+    GUMBEL = "gumbel"
+    INDEPENDENT = "independent"  # No dependence (marginals only)
+
+
 class StandardizationMethod(str, Enum):
     """Standardization methods for distributions."""
 
     ZSCORE = "zscore"
     MINMAX = "minmax"
     NONE = "none"
+
+
+class GoodnessOfFitResult(BaseModel):
+    """Kolmogorov-Smirnov goodness-of-fit test result.
+
+    Attributes:
+        statistic: K-S test statistic (max absolute difference between CDFs).
+        p_value: P-value for the test (reject fit if < alpha).
+        n_samples: Number of samples used in the test.
+        passed: Whether the fit passed at alpha=0.05.
+    """
+
+    statistic: float = Field(..., ge=0, le=1, description="K-S test statistic")
+    p_value: float = Field(..., ge=0, le=1, description="P-value")
+    n_samples: int = Field(..., ge=1, description="Sample size")
+    passed: bool = Field(..., description="Passed at alpha=0.05")
+
+
+class CopulaSpec(BaseModel):
+    """Specification for fitted copula capturing dependence structure.
+
+    Attributes:
+        copula_type: Type of copula (gaussian, student_t, clayton, etc.).
+        correlation_matrix: Correlation matrix for Gaussian/Student-t copulas.
+        theta: Copula parameter for Archimedean copulas (Clayton, Frank, Gumbel).
+        df: Degrees of freedom for Student-t copula.
+        variable_names: Ordered list of variable names in the copula.
+    """
+
+    copula_type: CopulaType = Field(..., description="Copula family")
+    correlation_matrix: list[list[float]] | None = Field(
+        default=None,
+        description="Correlation matrix (for Gaussian/Student-t copulas)",
+    )
+    theta: float | None = Field(
+        default=None,
+        description="Copula parameter (for Archimedean copulas)",
+    )
+    df: float | None = Field(
+        default=None,
+        description="Degrees of freedom (for Student-t copula)",
+    )
+    variable_names: list[str] = Field(
+        ...,
+        description="Ordered variable names in the copula",
+    )
+
+    @field_validator("correlation_matrix")
+    @classmethod
+    def validate_correlation_matrix(
+        cls, v: list[list[float]] | None
+    ) -> list[list[float]] | None:
+        """Ensure correlation matrix is valid (symmetric, diagonal=1)."""
+        if v is None:
+            return v
+        n = len(v)
+        for i, row in enumerate(v):
+            if len(row) != n:
+                raise ValueError("Correlation matrix must be square")
+            if abs(row[i] - 1.0) > 1e-6:
+                raise ValueError("Diagonal elements must be 1.0")
+        return v
 
 
 class DistributionSpec(BaseModel):
@@ -49,6 +122,10 @@ class DistributionSpec(BaseModel):
     raw_stats: dict[str, float] = Field(
         default_factory=dict,
         description="Raw statistics (mean, std, min, max) before standardization",
+    )
+    goodness_of_fit: GoodnessOfFitResult | None = Field(
+        default=None,
+        description="K-S goodness-of-fit test result for this distribution",
     )
 
     @field_validator("params")
@@ -225,6 +302,13 @@ class CalibrationArtifact(BaseModel):
         default=None,
         description="Household random effects distribution",
     )
+
+    # Dependence structure (Gemini recommendation: preserve correlation)
+    copula: CopulaSpec | None = Field(
+        default=None,
+        description="Copula specification for joint distribution of assets, credit, shocks",
+    )
+
     additional_metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata",

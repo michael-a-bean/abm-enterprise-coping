@@ -9,8 +9,11 @@ This module provides functionality to:
 from abm_enterprise.calibration.schemas import (
     CalibrationArtifact,
     CalibrationManifest,
+    CopulaSpec,
+    CopulaType,
     CreditModelSpec,
     DistributionSpec,
+    GoodnessOfFitResult,
     TransitionRates,
 )
 from abm_enterprise.calibration.fit import (
@@ -19,17 +22,24 @@ from abm_enterprise.calibration.fit import (
     fit_credit_model,
     fit_shock_distribution,
     compute_transition_rates,
+    fit_copula,
+    compute_goodness_of_fit,
 )
 
 __all__ = [
     "CalibrationArtifact",
     "CalibrationManifest",
+    "CopulaSpec",
+    "CopulaType",
     "CreditModelSpec",
     "DistributionSpec",
+    "GoodnessOfFitResult",
     "TransitionRates",
     "fit_calibration",
     "fit_asset_distribution",
     "fit_credit_model",
     "fit_shock_distribution",
     "compute_transition_rates",
+    "fit_copula",
+    "compute_goodness_of_fit",
 ]

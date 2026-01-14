@@ -15,17 +15,22 @@ import pytest
 from abm_enterprise.calibration.schemas import (
     CalibrationArtifact,
     CalibrationManifest,
+    CopulaSpec,
+    CopulaType,
     CreditModelSpec,
     DistributionFamily,
     DistributionSpec,
     EnterpriseBaseline,
+    GoodnessOfFitResult,
     StandardizationMethod,
     TransitionRates,
 )
 from abm_enterprise.calibration.fit import (
     compute_enterprise_baseline,
+    compute_goodness_of_fit,
     compute_transition_rates,
     fit_asset_distribution,
+    fit_copula,
     fit_credit_model,
     fit_shock_distribution,
 )
@@ -456,3 +461,288 @@ class TestCalibrationManifest:
 
             assert data["calibration_id"] == "test123"
             assert data["country"] == "tanzania"
+
+
+class TestGoodnessOfFit:
+    """Tests for K-S goodness-of-fit functionality (Gemini recommendation)."""
+
+    def test_compute_goodness_of_fit_normal(self):
+        """Test K-S test for normal distribution."""
+        np.random.seed(42)
+        data = np.random.normal(0, 1, 500)
+
+        gof = compute_goodness_of_fit(
+            data,
+            DistributionFamily.NORMAL,
+            {"mean": 0.0, "std": 1.0},
+        )
+
+        assert isinstance(gof, GoodnessOfFitResult)
+        assert gof.n_samples == 500
+        assert 0 <= gof.statistic <= 1
+        assert 0 <= gof.p_value <= 1
+        # For well-matched data, should pass
+        assert gof.passed is True or gof.p_value >= 0.05
+
+    def test_compute_goodness_of_fit_mismatched(self):
+        """Test K-S test for mismatched distribution."""
+        np.random.seed(42)
+        # Generate from one distribution, test against different params
+        data = np.random.normal(5.0, 2.0, 500)
+
+        gof = compute_goodness_of_fit(
+            data,
+            DistributionFamily.NORMAL,
+            {"mean": 0.0, "std": 1.0},  # Wrong parameters
+        )
+
+        # Should fail the test (low p-value)
+        assert gof.passed is False or gof.p_value < 0.05
+
+    def test_asset_distribution_includes_gof(self):
+        """Test that fit_asset_distribution includes goodness-of-fit."""
+        np.random.seed(42)
+        assets = pd.Series(np.random.normal(0, 1, 500))
+
+        spec = fit_asset_distribution(assets, family=DistributionFamily.NORMAL)
+
+        # Should include goodness_of_fit field
+        assert spec.goodness_of_fit is not None
+        assert isinstance(spec.goodness_of_fit, GoodnessOfFitResult)
+        assert spec.goodness_of_fit.n_samples == 500
+
+
+class TestCopulaSpec:
+    """Tests for CopulaSpec schema (Gemini recommendation)."""
+
+    def test_gaussian_copula_spec(self):
+        """Test creating Gaussian copula spec."""
+        spec = CopulaSpec(
+            copula_type=CopulaType.GAUSSIAN,
+            correlation_matrix=[[1.0, 0.5], [0.5, 1.0]],
+            variable_names=["assets", "shocks"],
+        )
+
+        assert spec.copula_type == CopulaType.GAUSSIAN
+        assert len(spec.variable_names) == 2
+        assert spec.correlation_matrix[0][1] == 0.5
+
+    def test_student_t_copula_spec(self):
+        """Test creating Student-t copula spec."""
+        spec = CopulaSpec(
+            copula_type=CopulaType.STUDENT_T,
+            correlation_matrix=[[1.0, 0.3], [0.3, 1.0]],
+            df=4.0,
+            variable_names=["assets", "shocks"],
+        )
+
+        assert spec.copula_type == CopulaType.STUDENT_T
+        assert spec.df == 4.0
+
+    def test_clayton_copula_spec(self):
+        """Test creating Clayton copula spec."""
+        spec = CopulaSpec(
+            copula_type=CopulaType.CLAYTON,
+            theta=2.5,
+            variable_names=["assets", "shocks"],
+        )
+
+        assert spec.copula_type == CopulaType.CLAYTON
+        assert spec.theta == 2.5
+
+    def test_invalid_correlation_matrix(self):
+        """Test that invalid correlation matrix is rejected."""
+        with pytest.raises(ValueError, match="square"):
+            CopulaSpec(
+                copula_type=CopulaType.GAUSSIAN,
+                correlation_matrix=[[1.0, 0.5, 0.3], [0.5, 1.0]],  # Not square
+                variable_names=["assets", "shocks"],
+            )
+
+
+class TestFitCopula:
+    """Tests for copula fitting functionality (Gemini recommendation)."""
+
+    def test_fit_gaussian_copula(self):
+        """Test fitting Gaussian copula."""
+        np.random.seed(42)
+        n = 500
+
+        # Generate correlated data
+        mean = [0, 0]
+        cov = [[1, 0.6], [0.6, 1]]
+        data = np.random.multivariate_normal(mean, cov, n)
+
+        df = pd.DataFrame({
+            "assets": data[:, 0],
+            "shocks": data[:, 1],
+        })
+
+        spec = fit_copula(df, ["assets", "shocks"], CopulaType.GAUSSIAN)
+
+        assert spec.copula_type == CopulaType.GAUSSIAN
+        assert spec.correlation_matrix is not None
+        assert len(spec.correlation_matrix) == 2
+        # Fitted correlation should be close to true correlation
+        fitted_corr = spec.correlation_matrix[0][1]
+        assert abs(fitted_corr - 0.6) < 0.15  # Allow some estimation error
+
+    def test_fit_independent_copula(self):
+        """Test fitting independent (no dependence) copula."""
+        np.random.seed(42)
+        n = 500
+
+        df = pd.DataFrame({
+            "assets": np.random.normal(0, 1, n),
+            "shocks": np.random.normal(0, 1, n),
+        })
+
+        spec = fit_copula(df, ["assets", "shocks"], CopulaType.INDEPENDENT)
+
+        assert spec.copula_type == CopulaType.INDEPENDENT
+        assert spec.correlation_matrix is None
+
+    def test_fit_copula_with_three_variables(self):
+        """Test fitting copula with three variables."""
+        np.random.seed(42)
+        n = 500
+
+        # Generate correlated data
+        mean = [0, 0, 0]
+        cov = [[1, 0.5, 0.3], [0.5, 1, 0.4], [0.3, 0.4, 1]]
+        data = np.random.multivariate_normal(mean, cov, n)
+
+        df = pd.DataFrame({
+            "assets": data[:, 0],
+            "shocks": data[:, 1],
+            "credit": data[:, 2],
+        })
+
+        spec = fit_copula(df, ["assets", "shocks", "credit"], CopulaType.GAUSSIAN)
+
+        assert spec.copula_type == CopulaType.GAUSSIAN
+        assert len(spec.variable_names) == 3
+        assert len(spec.correlation_matrix) == 3
+        assert len(spec.correlation_matrix[0]) == 3
+
+    def test_fit_clayton_copula(self):
+        """Test fitting Clayton copula (bivariate only)."""
+        np.random.seed(42)
+        n = 500
+
+        # Generate positively dependent data
+        u = np.random.random(n)
+        v = np.random.random(n)
+        # Simple correlation
+        data = np.column_stack([u, 0.7 * u + 0.3 * v])
+
+        df = pd.DataFrame({
+            "x": data[:, 0],
+            "y": data[:, 1],
+        })
+
+        spec = fit_copula(df, ["x", "y"], CopulaType.CLAYTON)
+
+        assert spec.copula_type == CopulaType.CLAYTON
+        assert spec.theta is not None
+        assert spec.theta > 0  # Clayton requires positive theta
+
+
+class TestCalibrationArtifactWithCopula:
+    """Tests for CalibrationArtifact with copula field."""
+
+    def test_artifact_with_copula(self):
+        """Test creating calibration artifact with copula."""
+        artifact = CalibrationArtifact(
+            country_source="tanzania",
+            git_commit="abc123",
+            waves=[1, 2, 3, 4],
+            n_households=100,
+            n_observations=400,
+            assets_distribution=DistributionSpec(
+                family=DistributionFamily.NORMAL,
+                params={"mean": 0.0, "std": 1.0},
+            ),
+            shock_distribution=DistributionSpec(
+                family=DistributionFamily.NORMAL,
+                params={"mean": -0.05, "std": 0.15},
+            ),
+            credit_model=CreditModelSpec(
+                coefficients={"assets_index": 0.5},
+                intercept=-1.0,
+                feature_names=["assets_index"],
+            ),
+            enterprise_baseline=EnterpriseBaseline(
+                prevalence=0.30,
+                entry_rate=0.08,
+                exit_rate=0.12,
+            ),
+            transition_rates=TransitionRates(
+                enter_rate=0.08,
+                exit_rate=0.12,
+                stay_rate=0.80,
+                enter_count=80,
+                exit_count=120,
+                stay_count=800,
+            ),
+            copula=CopulaSpec(
+                copula_type=CopulaType.GAUSSIAN,
+                correlation_matrix=[[1.0, 0.5, 0.3], [0.5, 1.0, 0.4], [0.3, 0.4, 1.0]],
+                variable_names=["assets_index", "price_exposure", "credit_access"],
+            ),
+        )
+
+        assert artifact.copula is not None
+        assert artifact.copula.copula_type == CopulaType.GAUSSIAN
+        assert len(artifact.copula.variable_names) == 3
+
+    def test_artifact_save_load_with_copula(self):
+        """Test saving and loading artifact with copula."""
+        artifact = CalibrationArtifact(
+            country_source="tanzania",
+            git_commit="abc123",
+            waves=[1, 2, 3, 4],
+            n_households=100,
+            n_observations=400,
+            assets_distribution=DistributionSpec(
+                family=DistributionFamily.NORMAL,
+                params={"mean": 0.0, "std": 1.0},
+            ),
+            shock_distribution=DistributionSpec(
+                family=DistributionFamily.NORMAL,
+                params={"mean": -0.05, "std": 0.15},
+            ),
+            credit_model=CreditModelSpec(
+                coefficients={"assets_index": 0.5},
+                intercept=-1.0,
+                feature_names=["assets_index"],
+            ),
+            enterprise_baseline=EnterpriseBaseline(
+                prevalence=0.30,
+                entry_rate=0.08,
+                exit_rate=0.12,
+            ),
+            transition_rates=TransitionRates(
+                enter_rate=0.08,
+                exit_rate=0.12,
+                stay_rate=0.80,
+                enter_count=80,
+                exit_count=120,
+                stay_count=800,
+            ),
+            copula=CopulaSpec(
+                copula_type=CopulaType.GAUSSIAN,
+                correlation_matrix=[[1.0, 0.5], [0.5, 1.0]],
+                variable_names=["assets", "shocks"],
+            ),
+        )
+
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "calibration.json"
+            artifact.save(str(path))
+
+            loaded = CalibrationArtifact.load(str(path))
+
+            assert loaded.copula is not None
+            assert loaded.copula.copula_type == CopulaType.GAUSSIAN
+            assert loaded.copula.correlation_matrix == [[1.0, 0.5], [0.5, 1.0]]

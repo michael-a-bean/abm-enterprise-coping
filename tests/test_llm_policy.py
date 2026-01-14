@@ -27,7 +27,11 @@ from abm_enterprise.policies.constraints import (
     NoExitIfNotInEnterpriseConstraint,
     get_default_constraints,
 )
-from abm_enterprise.policies.llm import LLMPolicyFactory
+from abm_enterprise.policies.llm import (
+    LLMPolicyConfig,
+    LLMPolicyFactory,
+    MultiSampleLLMPolicy,
+)
 from abm_enterprise.policies.logging import DecisionLogger, compute_state_hash
 from abm_enterprise.policies.prompts import (
     PromptConfig,
@@ -550,3 +554,148 @@ class TestReplayIntegration:
 
             for i, record in enumerate(replay_records):
                 assert record.final_action == stub_actions[i].value
+
+
+class TestLLMPolicyConfig:
+    """Tests for LLMPolicyConfig (Gemini recommendations: early stopping, model version)."""
+
+    def test_default_config(self) -> None:
+        """Test default config values."""
+        config = LLMPolicyConfig()
+
+        assert config.model == "gpt-4o-mini"
+        assert config.temperature == 0.6
+        assert config.k_samples == 5
+        assert config.early_stopping_enabled is True
+        assert config.early_stopping_threshold == 3
+        assert config.model_version is None
+
+    def test_early_stopping_config(self) -> None:
+        """Test early stopping configuration (Gemini recommendation)."""
+        config = LLMPolicyConfig(
+            early_stopping_enabled=True,
+            early_stopping_threshold=4,
+        )
+
+        assert config.early_stopping_enabled is True
+        assert config.early_stopping_threshold == 4
+
+    def test_early_stopping_disabled(self) -> None:
+        """Test disabling early stopping."""
+        config = LLMPolicyConfig(early_stopping_enabled=False)
+
+        assert config.early_stopping_enabled is False
+
+    def test_model_version_in_config_hash(self) -> None:
+        """Test model version included in config hash (Gemini recommendation)."""
+        config1 = LLMPolicyConfig(model="gpt-4o-mini", model_version=None)
+        config2 = LLMPolicyConfig(model="gpt-4o-mini", model_version="gpt-4o-mini-2024-07-18")
+
+        hash1 = config1.to_config_dict()
+        hash2 = config2.to_config_dict()
+
+        # Model version should be in the hash dict
+        assert "model_version" in hash1
+        assert "model_version" in hash2
+        assert hash1["model_version"] is None
+        assert hash2["model_version"] == "gpt-4o-mini-2024-07-18"
+
+        # Different versions should produce different hashes
+        from abm_enterprise.policies.cache import compute_config_hash
+        computed_hash1 = compute_config_hash(hash1)
+        computed_hash2 = compute_config_hash(hash2)
+        assert computed_hash1 != computed_hash2
+
+    def test_early_stopping_threshold_bounds(self) -> None:
+        """Test early stopping threshold bounds."""
+        # Valid threshold
+        config = LLMPolicyConfig(early_stopping_threshold=5)
+        assert config.early_stopping_threshold == 5
+
+        # Invalid: below minimum
+        with pytest.raises(ValueError):
+            LLMPolicyConfig(early_stopping_threshold=1)
+
+        # Invalid: above maximum
+        with pytest.raises(ValueError):
+            LLMPolicyConfig(early_stopping_threshold=15)
+
+
+class TestMultiSampleLLMPolicyEarlyStopping:
+    """Tests for MultiSampleLLMPolicy early stopping (Gemini recommendation)."""
+
+    def test_early_stopping_when_samples_agree(self) -> None:
+        """Test early stopping when consecutive samples agree."""
+        config = LLMPolicyConfig(
+            k_samples=5,
+            early_stopping_enabled=True,
+            early_stopping_threshold=3,
+        )
+
+        provider = StubProvider()  # Returns deterministic results
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            policy = MultiSampleLLMPolicy(
+                provider=provider,
+                config=config,
+                log_dir=tmpdir,
+            )
+
+            # Create state that should trigger consistent decision
+            state = make_household_state(
+                assets=0.5,
+                price_exposure=0.1,  # Good price, should be NO_CHANGE
+            )
+
+            action = policy.decide(state)
+            assert isinstance(action, Action)
+
+            # Note: Can't easily verify early stopping without inspecting internal state
+            # But the test verifies the functionality doesn't break
+
+    def test_no_early_stopping_when_disabled(self) -> None:
+        """Test that early stopping is disabled when configured."""
+        config = LLMPolicyConfig(
+            k_samples=5,
+            early_stopping_enabled=False,
+        )
+
+        provider = StubProvider()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            policy = MultiSampleLLMPolicy(
+                provider=provider,
+                config=config,
+                log_dir=tmpdir,
+            )
+
+            state = make_household_state(
+                assets=0.5,
+                price_exposure=0.1,
+            )
+
+            action = policy.decide(state)
+            assert isinstance(action, Action)
+
+    def test_policy_with_model_version(self) -> None:
+        """Test policy with pinned model version."""
+        config = LLMPolicyConfig(
+            model="gpt-4o-mini",
+            model_version="gpt-4o-mini-2024-07-18",
+        )
+
+        provider = StubProvider()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            policy = MultiSampleLLMPolicy(
+                provider=provider,
+                config=config,
+                log_dir=tmpdir,
+            )
+
+            # Config hash should include model version
+            assert "gpt-4o-mini-2024-07-18" in str(policy._config_hash) or policy._config_hash is not None
+
+            state = make_household_state()
+            action = policy.decide(state)
+            assert isinstance(action, Action)

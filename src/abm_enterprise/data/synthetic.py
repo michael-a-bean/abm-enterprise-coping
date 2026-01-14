@@ -15,12 +15,13 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 from abm_enterprise.utils.logging import get_logger
 from abm_enterprise.utils.rng import get_rng, set_seed
 
 if TYPE_CHECKING:
-    from abm_enterprise.calibration.schemas import CalibrationArtifact
+    from abm_enterprise.calibration.schemas import CalibrationArtifact, CopulaSpec
 
 logger = get_logger(__name__)
 
@@ -76,6 +77,7 @@ class SyntheticPanelConfig:
         seed: Random seed for reproducibility.
         transition: Transition dynamics configuration.
         initial_enterprise_rate: Initial enterprise prevalence (if not from calibration).
+        use_copula: Whether to use copula for correlated initial states.
     """
 
     n_households: int = 1000
@@ -83,6 +85,7 @@ class SyntheticPanelConfig:
     seed: int = 42
     transition: TransitionConfig = field(default_factory=TransitionConfig)
     initial_enterprise_rate: float | None = None
+    use_copula: bool = True  # Gemini recommendation: preserve correlation structure
 
 
 class SyntheticPanelGenerator:
@@ -146,10 +149,21 @@ class SyntheticPanelGenerator:
         household_ids = [f"SH_{i:05d}" for i in range(n)]
 
         # Generate initial states (wave 1)
-        initial_assets = self._draw_initial_assets(n)
-        initial_credit = self._draw_initial_credit(initial_assets)
+        # Use copula-based sampling if available and enabled
+        if (
+            self.config.use_copula
+            and self.calibration.copula is not None
+            and self.calibration.copula.copula_type.value != "independent"
+        ):
+            logger.info("Using copula-based sampling for initial states")
+            initial_assets, initial_credit, initial_shocks = self._draw_initial_states_copula(n)
+        else:
+            logger.info("Using independent marginal sampling for initial states")
+            initial_assets = self._draw_initial_assets(n)
+            initial_credit = self._draw_initial_credit(initial_assets)
+            initial_shocks = self._draw_shocks(waves[0], n)
+
         initial_enterprise = self._draw_initial_enterprise(n)
-        initial_shocks = self._draw_shocks(waves[0], n)
 
         # Store wave 1
         current_assets = initial_assets.copy()
@@ -292,6 +306,240 @@ class SyntheticPanelGenerator:
 
         enterprise = (self.rng.random(n) < rate).astype(int)
         return enterprise
+
+    def _draw_initial_states_copula(
+        self, n: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Draw correlated initial states using fitted copula.
+
+        Uses the fitted copula to generate samples with the correct
+        dependence structure, then transforms back to original marginals.
+
+        Args:
+            n: Number of households.
+
+        Returns:
+            Tuple of (assets, credit, shocks) arrays.
+        """
+        copula = self.calibration.copula
+        if copula is None:
+            raise ValueError("No copula available for sampling")
+
+        # Get variable names and their order in the copula
+        var_names = copula.variable_names
+        n_vars = len(var_names)
+
+        # Sample from copula to get uniform marginals
+        if copula.copula_type.value == "gaussian":
+            # Sample from multivariate normal with copula correlation
+            corr_matrix = np.array(copula.correlation_matrix)
+            normal_samples = self.rng.multivariate_normal(
+                mean=np.zeros(n_vars),
+                cov=corr_matrix,
+                size=n,
+            )
+            # Transform to uniform using normal CDF
+            uniform_samples = stats.norm.cdf(normal_samples)
+
+        elif copula.copula_type.value == "student_t":
+            # Sample from multivariate t-distribution
+            corr_matrix = np.array(copula.correlation_matrix)
+            df = copula.df or 4.0
+
+            # Generate multivariate t using the standard method:
+            # X = sqrt(df/W) * Z where Z ~ MVN(0, Sigma) and W ~ chi2(df)
+            normal_samples = self.rng.multivariate_normal(
+                mean=np.zeros(n_vars),
+                cov=corr_matrix,
+                size=n,
+            )
+            w = self.rng.chisquare(df, size=n)
+            t_samples = normal_samples * np.sqrt(df / w)[:, np.newaxis]
+
+            # Transform to uniform using t CDF
+            uniform_samples = stats.t.cdf(t_samples, df=df)
+
+        elif copula.copula_type.value in ("clayton", "frank", "gumbel"):
+            # Archimedean copulas - bivariate only
+            if n_vars != 2:
+                logger.warning(
+                    f"Archimedean copula only supports 2 variables, "
+                    f"falling back to Gaussian for {n_vars} variables"
+                )
+                # Fall back to Gaussian approximation
+                corr_matrix = np.eye(n_vars)
+                normal_samples = self.rng.multivariate_normal(
+                    mean=np.zeros(n_vars),
+                    cov=corr_matrix,
+                    size=n,
+                )
+                uniform_samples = stats.norm.cdf(normal_samples)
+            else:
+                # Use simple conditional sampling for Archimedean copulas
+                theta = copula.theta or 1.0
+                u1 = self.rng.random(n)
+
+                if copula.copula_type.value == "clayton":
+                    # Clayton copula conditional sampling
+                    v = self.rng.random(n)
+                    u2 = ((u1 ** (-theta) * (v ** (-theta / (1 + theta)) - 1) + 1)
+                          ** (-1 / theta))
+                elif copula.copula_type.value == "frank":
+                    # Frank copula - use approximation
+                    v = self.rng.random(n)
+                    u2 = -np.log(1 + v * (np.exp(-theta) - 1) /
+                                (np.exp(-theta * u1) + v * (1 - np.exp(-theta * u1)))) / theta
+                    u2 = np.clip(u2, 0.001, 0.999)
+                else:  # Gumbel
+                    # Gumbel copula - use approximation
+                    v = self.rng.random(n)
+                    u2 = np.exp(-(-np.log(u1)) ** (1 / theta) * ((-np.log(v)) ** (1 / theta)))
+                    u2 = np.clip(u2, 0.001, 0.999)
+
+                uniform_samples = np.column_stack([u1, u2])
+        else:
+            # Independent - just draw uniform samples
+            uniform_samples = self.rng.random((n, n_vars))
+
+        # Transform uniform samples to original marginals
+        assets = self._transform_marginal_assets(uniform_samples, var_names)
+        credit = self._transform_marginal_credit(uniform_samples, var_names)
+        shocks = self._transform_marginal_shocks(uniform_samples, var_names)
+
+        logger.debug(
+            "Copula sampling completed",
+            copula_type=copula.copula_type.value,
+            n_samples=n,
+            asset_mean=float(assets.mean()),
+            credit_rate=float(credit.mean()),
+        )
+
+        return assets, credit, shocks
+
+    def _transform_marginal_assets(
+        self, uniform_samples: np.ndarray, var_names: list[str]
+    ) -> np.ndarray:
+        """Transform uniform copula sample to asset marginal.
+
+        Args:
+            uniform_samples: Uniform samples from copula (n x n_vars).
+            var_names: Variable names in copula.
+
+        Returns:
+            Asset values array.
+        """
+        # Find assets column in copula variables
+        assets_idx = None
+        for i, name in enumerate(var_names):
+            if "asset" in name.lower():
+                assets_idx = i
+                break
+
+        if assets_idx is None:
+            # Assets not in copula, draw independently
+            return self._draw_initial_assets(len(uniform_samples))
+
+        # Get uniform values for assets
+        u = uniform_samples[:, assets_idx]
+
+        # Transform using inverse CDF of asset distribution
+        dist = self.calibration.assets_distribution
+        params = dist.params
+
+        if dist.family.value == "normal":
+            assets = stats.norm.ppf(u, loc=params["mean"], scale=params["std"])
+        elif dist.family.value == "lognormal":
+            assets = stats.lognorm.ppf(
+                u,
+                s=params.get("sigma", 1.0),
+                loc=params.get("loc", 0.0),
+                scale=params.get("scale", 1.0),
+            )
+        elif dist.family.value == "t":
+            assets = stats.t.ppf(
+                u, df=params["df"], loc=params["loc"], scale=params["scale"]
+            )
+        else:
+            # Fallback to normal
+            assets = stats.norm.ppf(u)
+
+        return assets.astype(np.float64)
+
+    def _transform_marginal_credit(
+        self, uniform_samples: np.ndarray, var_names: list[str]
+    ) -> np.ndarray:
+        """Transform uniform copula sample to credit marginal.
+
+        Credit is binary, so we threshold the uniform value at the credit rate.
+
+        Args:
+            uniform_samples: Uniform samples from copula (n x n_vars).
+            var_names: Variable names in copula.
+
+        Returns:
+            Credit access indicators (0/1).
+        """
+        # Find credit column in copula variables
+        credit_idx = None
+        for i, name in enumerate(var_names):
+            if "credit" in name.lower():
+                credit_idx = i
+                break
+
+        if credit_idx is None:
+            # Credit not in copula, derive from assets
+            assets = self._transform_marginal_assets(uniform_samples, var_names)
+            return self._draw_initial_credit(assets)
+
+        # Get uniform values for credit
+        u = uniform_samples[:, credit_idx]
+
+        # Credit access rate from calibration
+        credit_rate = self.calibration.credit_model.model_metrics.get("credit_rate", 0.3)
+
+        # Threshold at credit rate
+        credit = (u < credit_rate).astype(int)
+        return credit
+
+    def _transform_marginal_shocks(
+        self, uniform_samples: np.ndarray, var_names: list[str]
+    ) -> np.ndarray:
+        """Transform uniform copula sample to shock marginal.
+
+        Args:
+            uniform_samples: Uniform samples from copula (n x n_vars).
+            var_names: Variable names in copula.
+
+        Returns:
+            Price shock values.
+        """
+        n = len(uniform_samples)
+
+        # Find shock/price column in copula variables
+        shock_idx = None
+        for i, name in enumerate(var_names):
+            if "shock" in name.lower() or "price" in name.lower() or "exposure" in name.lower():
+                shock_idx = i
+                break
+
+        if shock_idx is None:
+            # Shocks not in copula, draw independently
+            return self._draw_shocks(self.config.waves[0], n)
+
+        # Get uniform values for shocks
+        u = uniform_samples[:, shock_idx]
+
+        # Transform using inverse CDF of shock distribution
+        dist = self.calibration.shock_distribution
+        params = dist.params
+
+        if dist.family.value == "normal":
+            shocks = stats.norm.ppf(u, loc=params["mean"], scale=params["std"])
+        else:
+            # Fallback to normal
+            shocks = stats.norm.ppf(u, loc=params.get("mean", 0), scale=params.get("std", 0.15))
+
+        return shocks.astype(np.float64)
 
     def _draw_shocks(self, wave: int, n: int) -> np.ndarray:
         """Draw price shock values for a wave.

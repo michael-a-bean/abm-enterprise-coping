@@ -21,10 +21,13 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from abm_enterprise.calibration.schemas import (
     CalibrationArtifact,
     CalibrationManifest,
+    CopulaSpec,
+    CopulaType,
     CreditModelSpec,
     DistributionFamily,
     DistributionSpec,
     EnterpriseBaseline,
+    GoodnessOfFitResult,
     StandardizationMethod,
     TransitionRates,
 )
@@ -65,6 +68,183 @@ def compute_file_hash(path: Path) -> str:
         for chunk in iter(lambda: f.read(8192), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def compute_goodness_of_fit(
+    data: np.ndarray,
+    family: DistributionFamily,
+    params: dict[str, float],
+    alpha: float = 0.05,
+) -> GoodnessOfFitResult:
+    """Compute Kolmogorov-Smirnov goodness-of-fit test for a fitted distribution.
+
+    Args:
+        data: Sample data array.
+        family: Distribution family.
+        params: Fitted distribution parameters.
+        alpha: Significance level (default 0.05).
+
+    Returns:
+        GoodnessOfFitResult with test statistic, p-value, and pass/fail.
+    """
+    data_clean = data[~np.isnan(data)]
+
+    # Get the scipy distribution with fitted parameters
+    if family == DistributionFamily.NORMAL:
+        dist = stats.norm(loc=params["mean"], scale=params["std"])
+    elif family == DistributionFamily.LOGNORMAL:
+        dist = stats.lognorm(
+            s=params["sigma"],
+            loc=params.get("loc", 0.0),
+            scale=params.get("scale", 1.0),
+        )
+    elif family == DistributionFamily.T:
+        dist = stats.t(df=params["df"], loc=params["loc"], scale=params["scale"])
+    elif family == DistributionFamily.SKEW_NORMAL:
+        dist = stats.skewnorm(a=params["skew"], loc=params["loc"], scale=params["scale"])
+    else:
+        raise ValueError(f"Unsupported distribution family for K-S test: {family}")
+
+    # Perform K-S test
+    ks_stat, p_value = stats.kstest(data_clean, dist.cdf)
+
+    logger.debug(
+        "K-S goodness-of-fit test",
+        family=family.value,
+        statistic=ks_stat,
+        p_value=p_value,
+        passed=p_value >= alpha,
+    )
+
+    return GoodnessOfFitResult(
+        statistic=float(ks_stat),
+        p_value=float(p_value),
+        n_samples=len(data_clean),
+        passed=p_value >= alpha,
+    )
+
+
+def fit_copula(
+    df: pd.DataFrame,
+    variable_cols: list[str],
+    copula_type: CopulaType = CopulaType.GAUSSIAN,
+) -> CopulaSpec:
+    """Fit a copula to capture dependence structure between variables.
+
+    Uses probability integral transform (PIT) to convert data to uniform
+    marginals, then fits the specified copula type.
+
+    Args:
+        df: DataFrame with variables to model.
+        variable_cols: Column names to include in copula.
+        copula_type: Type of copula to fit (default Gaussian).
+
+    Returns:
+        CopulaSpec with fitted parameters.
+    """
+    # Clean data - require all columns present
+    df_clean = df[variable_cols].dropna()
+
+    if len(df_clean) < 50:
+        logger.warning(
+            "Small sample for copula fitting",
+            n=len(df_clean),
+            variables=variable_cols,
+        )
+
+    # Transform to uniform marginals using empirical CDF (PIT)
+    n = len(df_clean)
+    uniform_data = np.zeros((n, len(variable_cols)))
+
+    for i, col in enumerate(variable_cols):
+        # Empirical CDF transform
+        ranks = stats.rankdata(df_clean[col].values)
+        uniform_data[:, i] = ranks / (n + 1)  # Avoid 0 and 1
+
+    if copula_type == CopulaType.INDEPENDENT:
+        # No dependence structure
+        return CopulaSpec(
+            copula_type=copula_type,
+            variable_names=variable_cols,
+        )
+
+    elif copula_type == CopulaType.GAUSSIAN:
+        # Transform to normal marginals
+        normal_data = stats.norm.ppf(uniform_data)
+
+        # Compute correlation matrix
+        correlation_matrix = np.corrcoef(normal_data.T).tolist()
+
+        logger.debug(
+            "Fitted Gaussian copula",
+            variables=variable_cols,
+            correlation_matrix=correlation_matrix,
+        )
+
+        return CopulaSpec(
+            copula_type=copula_type,
+            correlation_matrix=correlation_matrix,
+            variable_names=variable_cols,
+        )
+
+    elif copula_type == CopulaType.STUDENT_T:
+        # Transform to normal marginals for correlation estimation
+        normal_data = stats.norm.ppf(uniform_data)
+        correlation_matrix = np.corrcoef(normal_data.T).tolist()
+
+        # Estimate degrees of freedom using MLE on copula likelihood
+        # For simplicity, use a reasonable default (df=4 for heavier tails)
+        df = 4.0
+
+        logger.debug(
+            "Fitted Student-t copula",
+            variables=variable_cols,
+            df=df,
+        )
+
+        return CopulaSpec(
+            copula_type=copula_type,
+            correlation_matrix=correlation_matrix,
+            df=df,
+            variable_names=variable_cols,
+        )
+
+    elif copula_type in (CopulaType.CLAYTON, CopulaType.FRANK, CopulaType.GUMBEL):
+        # Archimedean copulas - only work for bivariate case
+        if len(variable_cols) != 2:
+            raise ValueError(
+                f"{copula_type.value} copula only supports 2 variables, "
+                f"got {len(variable_cols)}"
+            )
+
+        # Estimate theta using Kendall's tau
+        tau, _ = stats.kendalltau(df_clean[variable_cols[0]], df_clean[variable_cols[1]])
+
+        # Convert tau to theta based on copula type
+        if copula_type == CopulaType.CLAYTON:
+            # Clayton: tau = theta / (theta + 2)
+            theta = max(0.01, 2 * tau / (1 - tau)) if tau > 0 else 0.01
+        elif copula_type == CopulaType.FRANK:
+            # Frank: Use approximation
+            theta = tau * 5.0  # Rough approximation
+        elif copula_type == CopulaType.GUMBEL:
+            # Gumbel: tau = 1 - 1/theta
+            theta = max(1.0, 1 / (1 - tau)) if tau < 1 else 10.0
+
+        logger.debug(
+            f"Fitted {copula_type.value} copula",
+            theta=theta,
+            kendall_tau=tau,
+        )
+
+        return CopulaSpec(
+            copula_type=copula_type,
+            theta=theta,
+            variable_names=variable_cols,
+        )
+
+    else:
+        raise ValueError(f"Unsupported copula type: {copula_type}")
 
 
 def fit_asset_distribution(
@@ -126,11 +306,16 @@ def fit_asset_distribution(
     else:
         raise ValueError(f"Unsupported distribution family: {family}")
 
+    # Compute K-S goodness-of-fit test
+    gof = compute_goodness_of_fit(assets_clean.values, family, params)
+
     logger.debug(
         "Fitted asset distribution",
         family=family.value,
         params=params,
         n=len(assets_clean),
+        ks_statistic=gof.statistic,
+        ks_passed=gof.passed,
     )
 
     return DistributionSpec(
@@ -138,6 +323,7 @@ def fit_asset_distribution(
         params=params,
         standardization=StandardizationMethod.NONE,
         raw_stats=raw_stats,
+        goodness_of_fit=gof,
     )
 
 
@@ -170,11 +356,19 @@ def fit_shock_distribution(
         "n": len(all_shocks),
     }
 
+    # Compute K-S goodness-of-fit for pooled distribution
+    pooled_gof = compute_goodness_of_fit(
+        all_shocks.values,
+        DistributionFamily.NORMAL,
+        {"mean": raw_stats["mean"], "std": raw_stats["std"]},
+    )
+
     pooled_spec = DistributionSpec(
         family=DistributionFamily.NORMAL,
         params={"mean": raw_stats["mean"], "std": raw_stats["std"]},
         standardization=StandardizationMethod.NONE,
         raw_stats=raw_stats,
+        goodness_of_fit=pooled_gof,
     )
 
     # Per-wave distributions
@@ -492,6 +686,29 @@ def fit_calibration(
         enterprise_col=enterprise_col,
     )
 
+    # 6. Fit copula for dependence structure (Gemini recommendation)
+    logger.info("Fitting copula for dependence structure")
+    copula_vars = [assets_col, "price_exposure"]
+    if "credit_access" in df.columns:
+        copula_vars.append("credit_access")
+
+    copula_type_str = config.get("copula_type", "gaussian")
+    copula_type = CopulaType(copula_type_str)
+
+    try:
+        copula = fit_copula(df, copula_vars, copula_type=copula_type)
+        logger.info(
+            "Copula fitted successfully",
+            type=copula_type.value,
+            variables=copula_vars,
+        )
+    except Exception as e:
+        logger.warning("Copula fitting failed, using independent marginals", error=str(e))
+        copula = CopulaSpec(
+            copula_type=CopulaType.INDEPENDENT,
+            variable_names=copula_vars,
+        )
+
     # Create calibration artifact
     artifact = CalibrationArtifact(
         country_source=country,
@@ -505,6 +722,7 @@ def fit_calibration(
         credit_model=credit_model,
         enterprise_baseline=enterprise_baseline,
         transition_rates=transition_rates,
+        copula=copula,
         additional_metadata={
             "config": config,
             "enterprise_col": enterprise_col,
