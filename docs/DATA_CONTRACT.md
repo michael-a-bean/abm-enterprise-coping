@@ -294,8 +294,11 @@ Report sections presenting empirical results MUST NOT combine:
 - [x] Generate calibrated search outputs (`outputs/search/calibrated/`)
 - [ ] Add validation metrics (optional enhancement)
 
-**FLAG 2 (LLM Policy) - PENDING:**
-- [ ] Generate LLM policy runs OR formalize execution checklist
+**FLAG 2 (LLM Policy) - COMPLETE:**
+- [x] Verify LLM API connectivity (OPENAI_API_KEY set)
+- [x] Test LLM policy execution (confirmed working)
+- [x] Document execution checklist in DATA_AUDIT.md
+- [ ] Generate full LLM results (optional, requires API costs)
 
 **Report Integration - PENDING:**
 - [ ] Update report to use `outputs/batch/lsms` for robustness analysis

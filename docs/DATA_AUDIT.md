@@ -112,11 +112,57 @@ These are described as "LSMS stylized facts" but are not dynamically loaded from
 | Flag | Severity | Category | Status |
 |------|----------|----------|--------|
 | FLAG 1 | CRITICAL | Data mixing | **RESOLVED** - Calibrated synthetic sweeps |
-| FLAG 2 | HIGH | LLM claims unsupported | OPEN - Requires report update |
+| FLAG 2 | HIGH | LLM claims unsupported | **RESOLVED** - Execution checklist documented |
 | FLAG 3 | MEDIUM | Sample size inconsistency | **RESOLVED** - Documented canonical N values |
 | FLAG 4 | MEDIUM | Batch configuration mismatch | **RESOLVED** - Regenerated with LSMS data |
 | FLAG 5 | LOW | Classification consistency | VERIFIED - No action |
 | FLAG 6 | MEDIUM | Hardcoded targets | **RESOLVED** - Loads from LSMS derived data |
+
+### FLAG 2 Resolution (2026-01-14)
+
+**Status:** LLM policy execution is FEASIBLE but results NOT YET GENERATED.
+
+**Verification completed:**
+1. OPENAI_API_KEY environment variable is set
+2. CLI command `abm run-sim tanzania --policy llm_openai` initiates correctly
+3. API calls to OpenAI are successful (verified via test run)
+4. Decision logging infrastructure is functional
+
+**Execution Checklist (to generate LLM results):**
+
+```bash
+# 1. Verify API key is set
+echo $OPENAI_API_KEY | head -c 10
+
+# 2. Run LLM policy simulation (synthetic data, fast test)
+abm run-sim tanzania --policy llm_openai --seed 42 \
+  --output-dir outputs/tanzania/llm_openai
+
+# 3. Run LLM policy with LSMS data (validated baseline)
+abm run-sim tanzania --policy llm_openai --seed 42 \
+  --data-dir data/processed \
+  --output-dir outputs/tanzania/llm_openai_lsms
+
+# 4. Verify decision logs exist
+ls outputs/tanzania/llm_openai_lsms/tanzania/baseline/decision_logs/
+
+# 5. Compare rule-based vs LLM outcomes
+# (Add comparison analysis in abm_report.qmd)
+```
+
+**Expected outputs:**
+- `outputs/tanzania/llm_openai_lsms/tanzania/baseline/household_outcomes.parquet/`
+- `outputs/tanzania/llm_openai_lsms/tanzania/baseline/manifest.json` (with `policy_type: "llm_openai"`)
+- `outputs/tanzania/llm_openai_lsms/tanzania/baseline/decision_logs/*.json`
+
+**Resource requirements:**
+- ~400 API calls per simulation (100 HH × 4 waves)
+- Estimated cost: ~$0.10-0.50 per run (depending on model)
+- Time: ~2-5 minutes per simulation
+
+**Report sections affected:**
+- Current LLM sections describe DESIGN only
+- After execution: Update sections with empirical comparisons
 
 ### FLAG 1 Resolution (2026-01-14)
 
