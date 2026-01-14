@@ -4,16 +4,25 @@
 Performs random search over parameter space to find configurations that
 minimize distance to target enterprise rates.
 
+Supports both uncalibrated and calibrated synthetic data, and can load
+target enterprise rates from LSMS derived data (FLAG 6 remediation).
+
 Usage:
+    # Uncalibrated (legacy)
     python3 scripts/run_behavior_search.py
     python3 scripts/run_behavior_search.py --n-candidates 50 --seeds 2
+
+    # Calibrated with LSMS targets (FLAG 1 + FLAG 6 remediation)
+    python3 scripts/run_behavior_search.py \
+        --calibration artifacts/calibration/tanzania/calibration.json \
+        --targets-from-lsms
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -22,17 +31,38 @@ import numpy as np
 import pandas as pd
 
 from abm_enterprise.data.schemas import SimulationConfig
-from abm_enterprise.data.synthetic import generate_synthetic_households
+from abm_enterprise.data.synthetic import (
+    generate_synthetic_households,
+    generate_synthetic_panel_from_file,
+)
 from abm_enterprise.model import EnterpriseCopingModel
 from abm_enterprise.policies.rule import RulePolicy
 from abm_enterprise.utils.rng import set_seed
+
+
+def load_lsms_enterprise_rates(country: str = "tanzania") -> dict[int, float]:
+    """Load enterprise rates by wave from LSMS derived data.
+
+    Args:
+        country: Country code (tanzania or ethiopia)
+
+    Returns:
+        Dictionary mapping wave to enterprise rate
+    """
+    targets_path = Path(f"data/processed/{country}/derived/household_targets.parquet")
+    if not targets_path.exists():
+        raise FileNotFoundError(f"LSMS targets not found: {targets_path}")
+
+    df = pd.read_parquet(targets_path)
+    rates = df.groupby("wave")["enterprise_indicator"].mean().to_dict()
+    return {int(k): float(v) for k, v in rates.items()}
 
 
 @dataclass
 class SearchConfig:
     """Configuration for behavior search."""
 
-    # Target enterprise rates by wave (from LSMS stylized facts)
+    # Target enterprise rates by wave (from LSMS or hardcoded)
     target_enterprise_rates: dict[int, float]
 
     # Parameter bounds
@@ -46,21 +76,41 @@ class SearchConfig:
     num_households: int = 100
     num_waves: int = 4
 
+    # Calibration (optional)
+    calibration_path: str | None = None
+
     # Data provenance (per DATA_CONTRACT.md)
     data_source: str = "synthetic_uncalibrated"  # synthetic_uncalibrated | calibrated | lsms_derived
     target_source: str = "hardcoded"  # hardcoded | lsms_derived
 
     @classmethod
-    def default(cls) -> "SearchConfig":
-        """Create default search configuration with LSMS-based targets."""
-        # Enterprise rates from Tanzania LSMS stylized facts
-        return cls(
-            target_enterprise_rates={
+    def default(cls, use_lsms_targets: bool = False, calibration_path: str | None = None) -> "SearchConfig":
+        """Create default search configuration.
+
+        Args:
+            use_lsms_targets: If True, load targets from LSMS data (FLAG 6 fix)
+            calibration_path: Path to calibration.json for calibrated synthetic data (FLAG 1 fix)
+        """
+        if use_lsms_targets:
+            target_rates = load_lsms_enterprise_rates("tanzania")
+            target_source = "lsms_derived"
+        else:
+            # Legacy hardcoded values
+            target_rates = {
                 1: 0.25,  # Wave 1
                 2: 0.28,  # Wave 2
                 3: 0.32,  # Wave 3
                 4: 0.35,  # Wave 4
             }
+            target_source = "hardcoded"
+
+        data_source = "calibrated" if calibration_path else "synthetic_uncalibrated"
+
+        return cls(
+            target_enterprise_rates=target_rates,
+            calibration_path=calibration_path,
+            data_source=data_source,
+            target_source=target_source,
         )
 
 
@@ -106,11 +156,20 @@ def evaluate_candidate(
         set_seed(seed)
 
         # Generate synthetic data
-        household_data = generate_synthetic_households(
-            n=config.num_households,
-            waves=config.num_waves,
-            country="tanzania",
-        )
+        if config.calibration_path:
+            # Use calibrated synthetic generation
+            household_data = generate_synthetic_panel_from_file(
+                calibration_path=config.calibration_path,
+                n_households=config.num_households,
+                seed=seed,
+            )
+        else:
+            # Use legacy uncalibrated generation
+            household_data = generate_synthetic_households(
+                n=config.num_households,
+                waves=config.num_waves,
+                country="tanzania",
+            )
 
         # Create policy with candidate parameters
         policy = RulePolicy(
@@ -166,6 +225,19 @@ def random_search(
 ) -> pd.DataFrame:
     """Perform random search and save results."""
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if verbose:
+        print(f"Search configuration:")
+        print(f"  Data source: {config.data_source}")
+        print(f"  Target source: {config.target_source}")
+        if config.calibration_path:
+            print(f"  Calibration: {config.calibration_path}")
+        print(f"  Target rates:")
+        for wave, rate in sorted(config.target_enterprise_rates.items()):
+            print(f"    Wave {wave}: {rate:.1%}")
+        print(f"  N candidates: {config.n_candidates}")
+        print(f"  Seeds per candidate: {config.seeds_per_candidate}")
+        print()
 
     rng = np.random.default_rng(seed=42)
 
@@ -279,8 +351,16 @@ def main():
         help="Households per simulation (default: 100)"
     )
     parser.add_argument(
-        "--output-dir", type=Path, default=Path("outputs/search"),
-        help="Output directory (default: outputs/search)"
+        "--calibration", type=Path, default=None,
+        help="Path to calibration.json for calibrated synthetic data"
+    )
+    parser.add_argument(
+        "--targets-from-lsms", action="store_true",
+        help="Load target enterprise rates from LSMS derived data (FLAG 6 fix)"
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=None,
+        help="Output directory (default: outputs/search/uncalibrated or outputs/search/calibrated)"
     )
     parser.add_argument(
         "--quiet", action="store_true",
@@ -289,12 +369,23 @@ def main():
 
     args = parser.parse_args()
 
-    config = SearchConfig.default()
+    # Determine output directory based on calibration
+    if args.output_dir:
+        output_dir = args.output_dir
+    elif args.calibration:
+        output_dir = Path("outputs/search/calibrated")
+    else:
+        output_dir = Path("outputs/search/uncalibrated")
+
+    config = SearchConfig.default(
+        use_lsms_targets=args.targets_from_lsms,
+        calibration_path=str(args.calibration) if args.calibration else None,
+    )
     config.n_candidates = args.n_candidates
     config.seeds_per_candidate = args.seeds
     config.num_households = args.households
 
-    random_search(config, args.output_dir, verbose=not args.quiet)
+    random_search(config, output_dir, verbose=not args.quiet)
 
 
 if __name__ == "__main__":

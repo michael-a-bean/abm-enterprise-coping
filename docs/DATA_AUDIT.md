@@ -111,12 +111,39 @@ These are described as "LSMS stylized facts" but are not dynamically loaded from
 
 | Flag | Severity | Category | Status |
 |------|----------|----------|--------|
-| FLAG 1 | CRITICAL | Data mixing | OPEN - Requires fix |
+| FLAG 1 | CRITICAL | Data mixing | **RESOLVED** - Calibrated synthetic sweeps |
 | FLAG 2 | HIGH | LLM claims unsupported | OPEN - Requires report update |
 | FLAG 3 | MEDIUM | Sample size inconsistency | **RESOLVED** - Documented canonical N values |
 | FLAG 4 | MEDIUM | Batch configuration mismatch | **RESOLVED** - Regenerated with LSMS data |
 | FLAG 5 | LOW | Classification consistency | VERIFIED - No action |
-| FLAG 6 | MEDIUM | Hardcoded targets | OPEN - Should load from data |
+| FLAG 6 | MEDIUM | Hardcoded targets | **RESOLVED** - Loads from LSMS derived data |
+
+### FLAG 1 Resolution (2026-01-14)
+
+**Actions taken:**
+1. Ran calibration to create artifact: `abm calibrate --country tanzania`
+   - Artifact: `artifacts/calibration/tanzania/calibration.json`
+   - Fitted distributions: assets (normal), shocks (normal)
+   - Credit model: logistic regression
+   - Copula: Gaussian for joint dependence
+2. Updated `scripts/run_sweep.py` to support `--calibration` argument
+3. Generated calibrated sweep outputs: `outputs/sweeps/calibrated/`
+   - 6x6 grid (36 cells), 2 seeds each
+   - data_source: "calibrated"
+4. Calibrated synthetic generation uses `SyntheticPanelGenerator` with copula-based initial states
+
+### FLAG 6 Resolution (2026-01-14)
+
+**Actions taken:**
+1. Added `load_lsms_enterprise_rates()` function to load targets from LSMS
+2. Updated `scripts/run_behavior_search.py` with:
+   - `--calibration` argument for calibrated synthetic data
+   - `--targets-from-lsms` flag to load targets from LSMS derived data
+3. Generated calibrated search outputs: `outputs/search/calibrated/`
+   - 40 candidates, 2 seeds each
+   - target_source: "lsms_derived"
+   - Target rates from LSMS: Wave 1: 19.6%, Wave 2: 26.0%, Wave 3: 28.6%, Wave 4: 28.4%
+4. Config now records both `data_source` and `target_source` per DATA_CONTRACT.md
 
 ### FLAG 3+4 Resolution (2026-01-14)
 

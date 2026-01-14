@@ -282,16 +282,17 @@ Report sections presenting empirical results MUST NOT combine:
 - [x] Add `batch_manifest.json` schema to contract
 - [x] Document canonical N values (500 for LSMS, 100 for exploratory)
 
-**FLAG 1 (Calibrated Synthetic) - PENDING:**
-- [ ] Run calibration: `abm calibrate --country tanzania`
-- [ ] Update `scripts/run_sweep.py` to add `--calibration-path` option
-- [ ] Update `scripts/run_behavior_search.py` to add `--calibration-path` option
-- [ ] Generate calibrated sweep outputs
-- [ ] Add calibration fit plots to report
+**FLAG 1 (Calibrated Synthetic) - COMPLETE:**
+- [x] Run calibration: `abm calibrate --country tanzania`
+- [x] Update `scripts/run_sweep.py` to add `--calibration` option
+- [x] Update `scripts/run_behavior_search.py` to add `--calibration` option
+- [x] Generate calibrated sweep outputs (`outputs/sweeps/calibrated/`)
+- [ ] Add calibration fit plots to report (pending report integration)
 
-**FLAG 6 (Search Targets) - PENDING:**
-- [ ] Refactor search to load targets from LSMS derived data
-- [ ] Add validation metrics (in-sample vs out-of-sample)
+**FLAG 6 (Search Targets) - COMPLETE:**
+- [x] Refactor search to load targets from LSMS derived data (`--targets-from-lsms`)
+- [x] Generate calibrated search outputs (`outputs/search/calibrated/`)
+- [ ] Add validation metrics (optional enhancement)
 
 **FLAG 2 (LLM Policy) - PENDING:**
 - [ ] Generate LLM policy runs OR formalize execution checklist

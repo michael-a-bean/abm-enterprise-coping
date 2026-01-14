@@ -1,0 +1,13 @@
+{
+  "calibration_id": "d94d3298",
+  "git_commit": "a6ef9f8",
+  "created_at": "2026-01-14T09:43:25.892850",
+  "country": "tanzania",
+  "input_data_path": "data/processed/tanzania/derived/household_targets.parquet",
+  "input_data_hash": "4f859587a9ff6c8affb6cd6239135be9",
+  "output_artifact_path": "artifacts/calibration/tanzania/calibration.json",
+  "parameters_used": {
+    "asset_family": "normal",
+    "shock_by_wave": false
+  }
+}

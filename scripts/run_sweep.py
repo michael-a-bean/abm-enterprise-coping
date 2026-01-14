@@ -4,9 +4,15 @@
 Runs simulations across a grid of price_threshold and asset_threshold values,
 collecting summary statistics for heatmap generation.
 
+Supports both uncalibrated and calibrated synthetic data generation.
+
 Usage:
+    # Uncalibrated synthetic (exploratory)
     python scripts/run_sweep.py
     python scripts/run_sweep.py --grid-size 4 --seeds 2
+
+    # Calibrated synthetic (FLAG 1 remediation)
+    python scripts/run_sweep.py --calibration artifacts/calibration/tanzania/calibration.json
 """
 
 from __future__ import annotations
@@ -22,7 +28,10 @@ import itertools
 import pandas as pd
 
 from abm_enterprise.data.schemas import SimulationConfig
-from abm_enterprise.data.synthetic import generate_synthetic_households
+from abm_enterprise.data.synthetic import (
+    generate_synthetic_households,
+    generate_synthetic_panel_from_file,
+)
 from abm_enterprise.model import EnterpriseCopingModel
 from abm_enterprise.policies.rule import RulePolicy
 from abm_enterprise.utils.rng import set_seed
@@ -42,11 +51,19 @@ class SweepConfig:
     num_waves: int = 4
     country: str = "tanzania"
 
+    # Calibration (optional)
+    calibration_path: str | None = None  # Path to calibration.json
+
     # Data provenance (per DATA_CONTRACT.md)
     data_source: str = "synthetic_uncalibrated"  # synthetic_uncalibrated | calibrated | lsms_derived
 
     @classmethod
-    def default_grid(cls, grid_size: int = 6, num_seeds: int = 2) -> "SweepConfig":
+    def default_grid(
+        cls,
+        grid_size: int = 6,
+        num_seeds: int = 2,
+        calibration_path: str | None = None,
+    ) -> "SweepConfig":
         """Create default sweep configuration."""
         import numpy as np
 
@@ -54,6 +71,8 @@ class SweepConfig:
             price_thresholds=np.linspace(-0.3, 0.0, grid_size).tolist(),
             asset_thresholds=np.linspace(-1.0, 1.0, grid_size).tolist(),
             seeds=list(range(42, 42 + num_seeds)),
+            calibration_path=calibration_path,
+            data_source="calibrated" if calibration_path else "synthetic_uncalibrated",
         )
 
 
@@ -83,16 +102,26 @@ def run_single_simulation(
     num_households: int = 100,
     num_waves: int = 4,
     country: str = "tanzania",
+    calibration_path: str | None = None,
 ) -> SweepResult:
     """Run a single simulation with given parameters."""
     set_seed(seed)
 
     # Generate synthetic data
-    household_data = generate_synthetic_households(
-        n=num_households,
-        waves=num_waves,
-        country=country,
-    )
+    if calibration_path:
+        # Use calibrated synthetic generation
+        household_data = generate_synthetic_panel_from_file(
+            calibration_path=calibration_path,
+            n_households=num_households,
+            seed=seed,
+        )
+    else:
+        # Use legacy uncalibrated generation
+        household_data = generate_synthetic_households(
+            n=num_households,
+            waves=num_waves,
+            country=country,
+        )
 
     # Create policy with specified thresholds
     policy = RulePolicy(
@@ -184,6 +213,9 @@ def run_sweep(config: SweepConfig, output_dir: Path, verbose: bool = True) -> pd
 
     if verbose:
         print(f"Running sweep: {total_points} points")
+        print(f"  Data source: {config.data_source}")
+        if config.calibration_path:
+            print(f"  Calibration: {config.calibration_path}")
         print(f"  Price thresholds: {config.price_thresholds}")
         print(f"  Asset thresholds: {config.asset_thresholds}")
         print(f"  Seeds: {config.seeds}")
@@ -199,6 +231,7 @@ def run_sweep(config: SweepConfig, output_dir: Path, verbose: bool = True) -> pd
             num_households=config.num_households,
             num_waves=config.num_waves,
             country=config.country,
+            calibration_path=config.calibration_path,
         )
         results.append(asdict(result))
 
@@ -285,8 +318,12 @@ def main():
         help="Number of households per simulation (default: 100)"
     )
     parser.add_argument(
-        "--output-dir", type=Path, default=Path("outputs/sweeps"),
-        help="Output directory (default: outputs/sweeps)"
+        "--calibration", type=Path, default=None,
+        help="Path to calibration.json for calibrated synthetic data"
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=None,
+        help="Output directory (default: outputs/sweeps/uncalibrated or outputs/sweeps/calibrated)"
     )
     parser.add_argument(
         "--quiet", action="store_true",
@@ -295,13 +332,22 @@ def main():
 
     args = parser.parse_args()
 
+    # Determine output directory based on calibration
+    if args.output_dir:
+        output_dir = args.output_dir
+    elif args.calibration:
+        output_dir = Path("outputs/sweeps/calibrated")
+    else:
+        output_dir = Path("outputs/sweeps/uncalibrated")
+
     config = SweepConfig.default_grid(
         grid_size=args.grid_size,
         num_seeds=args.seeds,
+        calibration_path=str(args.calibration) if args.calibration else None,
     )
     config.num_households = args.households
 
-    run_sweep(config, args.output_dir, verbose=not args.quiet)
+    run_sweep(config, output_dir, verbose=not args.quiet)
 
 
 if __name__ == "__main__":
