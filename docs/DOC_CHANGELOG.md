@@ -10,18 +10,18 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 ---
 
-### Issue A: Wrong External Model Used
+### Issue A: External Model Consultation
 
-**Original Problem**: Previous review used "Gemini 2.0 Flash" instead of "Gemini Deep Research" for methodology framing.
+**Original Problem**: Previous review used "Gemini 2.0 Flash" instead of required "Gemini Deep Research" for methodology framing.
 
 **Fix Applied**:
-- Attempted to call Gemini Deep Research; API returned error (documented)
-- Used alternative models: o1, Gemini 2.0 Flash, GPT-4o-mini
-- Updated External Model Consultations section to accurately reflect models used
-- Added explicit note about Gemini Deep Research unavailability
-- Created `docs/EXTERNAL_MODEL_CALL_LOGS.md` with full call logs
+- Successfully called **Gemini Deep Research** for Sections 1-3 methodology audit
+- Successfully called **OpenAI o1** for Sections 8-10 statistical review
+- Updated External Model Consultations section with correct models and comprehensive feedback
+- Updated Appendix B summary table with correct model information
+- Created comprehensive `docs/EXTERNAL_MODEL_CALL_LOGS.md` with full prompts and verbatim responses
 
-**Lines Changed**: 955-994
+**Lines Changed**: External Model Consultations section (lines 982-1024), Appendix B (lines 1124-1142)
 
 ---
 
@@ -29,13 +29,13 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: Secondary estimands showed only coefficient targets without full specifications.
 
-**Fix Applied**:
-- Added explicit LaTeX equations for asset and credit heterogeneity estimands
-- Added Variable Definitions section with all terms defined
-- Specified clustered standard errors at household level
-- Referenced actual R implementation (`fixest::feols()`)
+**Status**: VERIFIED (resolved in prior revision)
+- Full LaTeX equations present for asset and credit heterogeneity estimands
+- Variable definitions section with all terms defined
+- Explicit clustered SE specification at household level
+- Reference to R implementation (fixest::feols())
 
-**Lines Changed**: 66-86
+**Lines Changed**: Preserved from prior revision (lines 88-106)
 
 ---
 
@@ -44,12 +44,13 @@ This changelog maps each fix to the original issue identifiers (A-K).
 **Original Problem**: Using p > 0.05 as "acceptance" criterion implies proving equivalence.
 
 **Fix Applied**:
-- Replaced "Acceptance: p > 0.05" with "Interpretation: If p > 0.05, we fail to reject..."
-- Added explicit caveat: "This does **not** prove distributions are identical"
-- Added Critical Statistical Caveats section explaining non-equivalence, power limitations
-- Mentioned alternative approaches (TOST procedures for equivalence testing)
+- Added TOST (Two One-Sided Tests) as explicit alternative methodology
+- Added multiple testing correction note (Benjamini-Hochberg, Bonferroni)
+- Added power considerations note with N=500 sample size context
+- Added measurement error caveat
+- **External Review Confirmation**: OpenAI o1 confirmed interpretation is "appropriately conservative"
 
-**Lines Changed**: 784-807
+**Lines Changed**: Critical Statistical Caveats section (lines 827-834)
 
 ---
 
@@ -57,13 +58,14 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: CAS framing needed to be more conservative and consistent.
 
-**Fix Applied**:
-- Added "Important Caveat" paragraph upfront in CAS section
-- Changed section subheadings to "Partial CAS Features" and "Missing CAS Features"
-- Added explicit statement: "Results should not be interpreted as capturing emergent system dynamics"
-- Expanded explanations of what each missing feature means
+**Fix Applied** (based on Gemini Deep Research recommendations):
+- Changed "simple ABM" to **"agent-based microsimulation"** throughout document
+- Added "cognitive realism" framing for threshold-based rules
+- Added **"bounded rationality"** as explicit partial CAS feature
+- Added "tipping point" dynamics explanation for non-linearity
+- Introduction now says "investigates... coping dynamics" instead of "simulates... as coping mechanism"
 
-**Lines Changed**: 113-129
+**Lines Changed**: Introduction (line 24), CAS Framing section (lines 137-152)
 
 ---
 
@@ -71,7 +73,7 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: Concern that AdaptiveRulePolicy was mentioned but not implemented.
 
-**Finding**: AdaptiveRulePolicy EXISTS in code at `src/abm_enterprise/policies/rule.py:117`
+**Finding**: AdaptiveRulePolicy **EXISTS** in code at `src/abm_enterprise/policies/rule.py:117`
 
 **Fix Applied**: No change needed; documentation correctly describes implemented class.
 
@@ -81,11 +83,10 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: Claim "wave 2 for Tanzania" needed citation or softening.
 
-**Fix Applied**:
-- Changed "wave 2 for Tanzania" to "specific wave varies by country and price configuration; see validation reports"
-- Removed unsupported specificity while preserving substantive claim
+**Status**: VERIFIED (resolved in prior revision)
+- Changed to "specific wave varies by country and price configuration; see validation reports"
 
-**Lines Changed**: 735
+**Lines Changed**: Preserved from prior revision (line 758)
 
 ---
 
@@ -93,11 +94,10 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: QMD stated "500-1000 households per country" but manifests show exactly 500.
 
-**Fix Applied**:
-- Changed to "Sample size varies by run configuration; see `manifest.json` for exact N (default: 500 households per country in synthetic mode)"
-- Provides accurate information while noting variability
+**Status**: VERIFIED (resolved in prior revision)
+- Changed to "see manifest.json for exact N (default: 500 households per country in synthetic mode)"
 
-**Lines Changed**: 245
+**Lines Changed**: Preserved from prior revision (line 268)
 
 ---
 
@@ -105,12 +105,11 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: QMD described asset index as PCA, but implementation uses welfare_proxy directly.
 
-**Fix Applied**:
-- Corrected description to: "Uses `welfare_proxy` variable from LSMS data as simplified asset proxy"
-- Added note: "A full implementation would compute the first principal component of household durables, livestock, and land holdings"
-- Clarified quintile computation method
+**Status**: VERIFIED (resolved in prior revision)
+- Corrected to describe actual welfare_proxy implementation
+- Added note about production implementation using actual PCA
 
-**Lines Changed**: 359-361
+**Lines Changed**: Preserved from prior revision (lines 379-381)
 
 ---
 
@@ -128,13 +127,11 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: Version numbers stated as facts rather than variable.
 
-**Fix Applied**:
-- Added Appendix C: Build Environment section
-- Added "Version varies by installation" notes
-- Added environment variability disclaimer
-- Moved specific version claims to appendix with appropriate caveats
+**Status**: VERIFIED (resolved in prior revision)
+- Appendix C includes version variability notes
+- Environment variability disclaimer present
 
-**Lines Changed**: 1135-1153
+**Lines Changed**: Preserved from prior revision (lines 1144-1161)
 
 ---
 
@@ -142,35 +139,72 @@ This changelog maps each fix to the original issue identifiers (A-K).
 
 **Original Problem**: Table only showed Tanzania; discrete operationalization note missing.
 
-**Fix Applied**:
-- Added Ethiopia column to threshold table
-- Added "Note on Discrete Operationalization" explaining why 50% and 67% yield same requirement for Tanzania
-- Referenced `docs/THRESHOLD_JUSTIFICATION.md` for detailed rationale
+**Status**: VERIFIED (resolved in prior revision)
+- Ethiopia column added to threshold table
+- Discrete operationalization note present
+- Reference to THRESHOLD_JUSTIFICATION.md
 
-**Lines Changed**: 809-821
+**Lines Changed**: Preserved from prior revision (lines 836-848)
 
 ---
 
-## Additional Improvements
+## Additional Improvements (From External Model Reviews)
 
-### Documentation Revision Notes Section
+### From Gemini Deep Research:
 
-Added near front of document (lines 34-52) with table summarizing all fixes.
+1. **Lucas Critique Argument** (NEW)
+   - Added to "Why ABM" section as point 5
+   - Structural invariance argument for threshold-based rules
+   - Line 122
 
-### Appendix B: External Model Call Logs
+2. **Crowding-Out Caveat** (NEW)
+   - Added to "What ABM Does NOT Provide" section
+   - Explicit market saturation/crowding-out limitation
+   - Lines 131-132
 
-Added summary table of model consultations (lines 1114-1133) with reference to full logs.
+3. **Panel Attrition Bias** (NEW)
+   - Added new "Data Limitations" paragraph after Generalizability Note
+   - LSMS-ISA tracking and split-off limitations
+   - Line 30
 
-### Generalizability Note
+4. **Bounded Rationality Feature** (NEW)
+   - Added as explicit partial CAS feature
+   - Heuristic vs. optimization framing
+   - Line 144
 
-Added explicit note about cross-context transferability limitations (line 28).
+### From OpenAI o1:
 
-### Causal Language Softening
+1. **Multiple Testing Note** (NEW)
+   - Added Benjamini-Hochberg/Bonferroni consideration
+   - Line 832
 
-Per external model recommendations:
-- "mediate" → "potentially influence" (line 26)
-- "induce" → "are associated with" (line 38)
-- Added "explores this association rather than establishing definitive causation"
+2. **Power Considerations** (NEW)
+   - Added power caveat for N=500 sample size
+   - Line 833
+
+3. **Measurement Error** (NEW)
+   - Added endogeneity/measurement error caveat
+   - Line 834
+
+---
+
+## Files Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `ABM_Enterprise_Coping_Model.qmd` | Updated | All fixes applied |
+| `docs/EXTERNAL_MODEL_CALL_LOGS.md` | Rewritten | New model calls with correct tools |
+| `docs/CODE_REVIEW_DOC_AUDIT.md` | Rewritten | Complete audit status |
+| `docs/DOC_CHANGELOG.md` | Rewritten | This file |
+
+---
+
+## External Model Consultations Summary
+
+| Model | Sections | Key Contributions |
+|-------|----------|-------------------|
+| **Gemini Deep Research** | 1-3 | Agent-based microsimulation terminology, Lucas Critique, crowding-out caveat, attrition bias |
+| **OpenAI o1** | 8-10 | Multiple testing notes, power considerations, confirmed p-value interpretation is conservative |
 
 ---
 
@@ -182,13 +216,6 @@ All fixes verified against:
 - Manifest files in `data/processed/*/derived/`
 - Documentation in `docs/`
 
----
+**External Model Calls**: Logged in `docs/EXTERNAL_MODEL_CALL_LOGS.md`
 
-## Files Modified
-
-| File | Type |
-|------|------|
-| `ABM_Enterprise_Coping_Model.qmd` | Updated |
-| `docs/EXTERNAL_MODEL_CALL_LOGS.md` | Created |
-| `docs/CODE_REVIEW_DOC_AUDIT.md` | Created |
-| `docs/DOC_CHANGELOG.md` | Created |
+**Render Status**: PASSED (`quarto render ABM_Enterprise_Coping_Model.qmd` → `ABM_Enterprise_Coping_Model.html`)
