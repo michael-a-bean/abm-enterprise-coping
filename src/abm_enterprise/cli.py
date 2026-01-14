@@ -778,6 +778,270 @@ def calibrate(
 
 
 @app.command()
+def eval_direct(
+    train_country: str = typer.Option(
+        "tanzania",
+        "--train-country",
+        "-t",
+        help="Country for training baselines",
+    ),
+    test_country: str | None = typer.Option(
+        None,
+        "--test-country",
+        "-T",
+        help="Country for testing (default: same as train)",
+    ),
+    data_dir: Path = typer.Option(
+        Path("data/processed"),
+        "--data-dir",
+        "-d",
+        help="Directory containing processed data",
+    ),
+    model: str = typer.Option(
+        "all",
+        "--model",
+        "-m",
+        help="Model to evaluate (llm_o4mini, baselines, or all)",
+    ),
+    baselines: str = typer.Option(
+        "logit,rf,gbm",
+        "--baselines",
+        "-b",
+        help="Comma-separated list of baselines (logit, rf, gbm)",
+    ),
+    output_dir: Path = typer.Option(
+        Path("outputs/eval"),
+        "--output-dir",
+        "-o",
+        help="Output directory for evaluation results",
+    ),
+    llm_temperature: float = typer.Option(
+        0.6,
+        "--llm-temperature",
+        help="Temperature for LLM sampling",
+    ),
+    llm_k_samples: int = typer.Option(
+        5,
+        "--llm-k-samples",
+        help="Number of samples for LLM voting",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+) -> None:
+    """Evaluate direct prediction on LSMS transition data.
+
+    Builds a transition dataset from LSMS panel data and evaluates
+    LLM predictions against ML baselines. Supports cross-country
+    generalization testing (train on one country, test on another).
+
+    Example:
+        abm eval-direct --train-country tanzania --test-country ethiopia
+        abm eval-direct --train-country tanzania --model baselines
+        abm eval-direct --train-country tanzania --model llm_o4mini --llm-k-samples 7
+    """
+    import json
+    import os
+
+    from abm_enterprise.eval import (
+        build_transition_dataset,
+        train_all_baselines,
+        compute_classification_metrics,
+        compute_confusion_matrix,
+        compute_subgroup_metrics,
+        predict_with_llm,
+    )
+    from abm_enterprise.eval.baselines import prepare_features
+    from abm_enterprise.eval.metrics import (
+        compare_models,
+        save_metrics,
+        save_confusion_matrices,
+        compute_asset_subgroup_metrics,
+        compute_credit_subgroup_metrics,
+    )
+    from abm_enterprise.eval.direct_prediction import predict_with_baselines
+
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(level=log_level)
+
+    # Set test country to train country if not specified
+    if test_country is None:
+        test_country = train_country
+
+    typer.echo(f"Direct prediction evaluation")
+    typer.echo(f"  Train country: {train_country}")
+    typer.echo(f"  Test country: {test_country}")
+    typer.echo(f"  Model: {model}")
+
+    # Parse baseline list
+    baseline_list = [b.strip() for b in baselines.split(",") if b.strip()]
+
+    # Create output directory structure
+    if train_country == test_country:
+        eval_name = train_country
+    else:
+        eval_name = f"{train_country}_to_{test_country}"
+
+    eval_output_dir = output_dir / "direct_prediction" / eval_name
+    eval_output_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # Step 1: Build transition datasets
+        typer.echo("\nStep 1: Building transition datasets...")
+        train_df = build_transition_dataset(train_country, data_dir / train_country / "derived")
+        typer.echo(f"  Train: {len(train_df)} transitions")
+
+        if test_country != train_country:
+            test_df = build_transition_dataset(test_country, data_dir / test_country / "derived")
+            typer.echo(f"  Test: {len(test_df)} transitions")
+        else:
+            test_df = train_df
+
+        # Step 2: Prepare features and labels
+        typer.echo("\nStep 2: Preparing features...")
+        feature_cols = ["assets_index", "credit_access", "enterprise_status", "price_exposure"]
+        X_train, _ = prepare_features(train_df, feature_cols)
+        y_train = train_df["transition"].values
+        X_test, _ = prepare_features(test_df, feature_cols)
+        y_test = test_df["transition"].values
+
+        typer.echo(f"  Feature columns: {feature_cols}")
+        typer.echo(f"  X_train shape: {X_train.shape}")
+        typer.echo(f"  X_test shape: {X_test.shape}")
+
+        results_df = test_df.copy()
+        trained_baselines = {}
+        confusion_matrices = {}
+
+        # Step 3: Train and evaluate baselines
+        if model in ("all", "baselines"):
+            typer.echo("\nStep 3: Training baselines...")
+            trained_baselines = train_all_baselines(X_train, y_train, baseline_list)
+
+            # Predict with baselines
+            typer.echo("  Running baseline predictions...")
+            results_df = predict_with_baselines(results_df, trained_baselines, feature_cols)
+
+            # Compute baseline metrics
+            for name in baseline_list:
+                pred_col = f"{name}_transition"
+                cm = compute_confusion_matrix(y_test, results_df[pred_col])
+                confusion_matrices[name] = cm
+                metrics = compute_classification_metrics(y_test, results_df[pred_col])
+                typer.echo(f"\n  {name} metrics:")
+                typer.echo(f"    Accuracy: {metrics.accuracy:.3f}")
+                typer.echo(f"    Balanced Accuracy: {metrics.balanced_accuracy:.3f}")
+                typer.echo(f"    Macro F1: {metrics.macro_f1:.3f}")
+
+        # Step 4: LLM predictions (if requested)
+        if model in ("all", "llm_o4mini", "llm"):
+            typer.echo("\nStep 4: Running LLM predictions...")
+
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                typer.echo("  Warning: OPENAI_API_KEY not set, using stub policy", err=True)
+                from abm_enterprise.policies.llm import MultiSampleLLMPolicyFactory
+
+                llm_policy = MultiSampleLLMPolicyFactory.create_stub_policy(
+                    k_samples=llm_k_samples,
+                )
+            else:
+                from abm_enterprise.policies.llm import MultiSampleLLMPolicyFactory
+
+                llm_policy = MultiSampleLLMPolicyFactory.create_o4mini_policy(
+                    api_key=api_key,
+                    temperature=llm_temperature,
+                    k_samples=llm_k_samples,
+                    cache_enabled=True,
+                )
+
+            results_df = predict_with_llm(results_df, llm_policy, batch_size=50)
+
+            # Compute LLM metrics
+            cm = compute_confusion_matrix(y_test, results_df["llm_transition"])
+            confusion_matrices["llm"] = cm
+            metrics = compute_classification_metrics(y_test, results_df["llm_transition"])
+            typer.echo(f"\n  LLM metrics:")
+            typer.echo(f"    Accuracy: {metrics.accuracy:.3f}")
+            typer.echo(f"    Balanced Accuracy: {metrics.balanced_accuracy:.3f}")
+            typer.echo(f"    Macro F1: {metrics.macro_f1:.3f}")
+            typer.echo(f"    Cache hit rate: {results_df['llm_cache_hit'].mean():.1%}")
+
+        # Step 5: Save results
+        typer.echo("\nStep 5: Saving results...")
+
+        # Save predictions
+        pred_path = eval_output_dir / "predictions.parquet"
+        results_df.to_parquet(pred_path, index=False)
+        typer.echo(f"  Predictions: {pred_path}")
+
+        # Save confusion matrices
+        save_confusion_matrices(confusion_matrices, eval_output_dir)
+
+        # Compare all models
+        pred_cols = []
+        if model in ("all", "baselines"):
+            pred_cols.extend([f"{b}_transition" for b in baseline_list])
+        if model in ("all", "llm_o4mini", "llm"):
+            pred_cols.append("llm_transition")
+
+        if pred_cols:
+            comparison = compare_models(results_df, "transition", pred_cols)
+            comparison_path = eval_output_dir / "model_comparison.csv"
+            comparison.to_csv(comparison_path, index=False)
+            typer.echo(f"  Model comparison: {comparison_path}")
+
+            typer.echo("\nModel Comparison:")
+            typer.echo(comparison.to_string(index=False))
+
+        # Subgroup analysis
+        if pred_cols:
+            typer.echo("\nStep 6: Subgroup analysis...")
+
+            # By asset quantile
+            for pred_col in pred_cols:
+                model_name = pred_col.replace("_transition", "")
+                asset_metrics = compute_asset_subgroup_metrics(
+                    results_df, "transition", pred_col, n_quantiles=4
+                )
+                asset_path = eval_output_dir / f"subgroup_assets_{model_name}.csv"
+                asset_metrics.to_csv(asset_path, index=False)
+
+            # By credit access
+            for pred_col in pred_cols:
+                model_name = pred_col.replace("_transition", "")
+                credit_metrics = compute_credit_subgroup_metrics(
+                    results_df, "transition", pred_col
+                )
+                credit_path = eval_output_dir / f"subgroup_credit_{model_name}.csv"
+                credit_metrics.to_csv(credit_path, index=False)
+
+            typer.echo(f"  Subgroup analysis saved to {eval_output_dir}")
+
+        # Save overall metrics
+        all_metrics = {}
+        for pred_col in pred_cols:
+            model_name = pred_col.replace("_transition", "")
+            metrics = compute_classification_metrics(y_test, results_df[pred_col])
+            all_metrics[model_name] = metrics.to_dict()
+
+        metrics_path = eval_output_dir / "metrics.json"
+        with open(metrics_path, "w") as f:
+            json.dump(all_metrics, f, indent=2)
+        typer.echo(f"  Metrics: {metrics_path}")
+
+        typer.echo(f"\nEvaluation complete. Results in {eval_output_dir}")
+
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+    except Exception as e:
+        typer.echo(f"Evaluation failed: {e}", err=True)
+        import traceback
+        if verbose:
+            traceback.print_exc()
+        raise typer.Exit(code=1) from None
+
+
+@app.command()
 def info() -> None:
     """Show information about the ABM package."""
     import mesa
@@ -791,6 +1055,7 @@ def info() -> None:
     typer.echo("  run-toy          Run with synthetic data")
     typer.echo("  run-sim          Run with real/synthetic data")
     typer.echo("  calibrate        Fit calibration distributions")
+    typer.echo("  eval-direct      Evaluate direct prediction")
     typer.echo("  ingest-data      Download and process LSMS data")
     typer.echo("  derive-targets   Build derived target tables")
     typer.echo("  validate-schema  Validate outputs")
