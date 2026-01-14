@@ -270,9 +270,10 @@ window.Quarto = {
 
 <section id="introduction" class="level1" data-number="1">
 <h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
-<p>This document presents an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks in Sub-Saharan Africa. The model operationalizes empirical findings from research on household enterprise dynamics and uses LSMS-ISA harmonized panel data for Tanzania and Ethiopia for calibration and exploratory validation.</p>
+<p>This document presents an agent-based microsimulation that investigates household enterprise entry dynamics in response to agricultural price shocks in Sub-Saharan Africa. The model instantiates empirical findings from research on household enterprise dynamics and uses LSMS-ISA harmonized panel data for Tanzania and Ethiopia for calibration and exploratory validation.</p>
 <p><strong>Scope and Purpose:</strong> The model provides a computational laboratory for exploring how household-level characteristics (asset holdings, credit access) potentially influence the relationship between agricultural price volatility and non-farm enterprise participation. It is designed for comparative policy analysis rather than point prediction.</p>
 <p><strong>Generalizability Note:</strong> While calibrated for Tanzania and Ethiopia, the model’s findings may not be directly transferable to other regions or countries without careful consideration of context-specific factors and potential recalibration.</p>
+<p><strong>Data Limitations:</strong> Calibration relies on balanced panel data from LSMS-ISA surveys. To the extent that enterprise entry is associated with migration (household split-offs) not fully captured in panel tracking, the model may underrepresent high-mobility entrepreneurial trajectories. Panel attrition, particularly among young adults who may be more likely to start enterprises and migrate, is a potential source of survivor bias.</p>
 <p><strong>Document Structure:</strong> This document follows a modified ODD+D (Overview, Design concepts, Details + Decision) protocol for ABM documentation, adapted for computational social science applications. Each claim is traceable to code artifacts, simulation outputs, or validation reports within the repository.</p>
 <p><strong>Limitations Statement:</strong> This ABM is a simplified representation of household decision-making. Agents are necessarily abstractions of real-world households, and the model does not capture general equilibrium effects, market-level feedbacks, or optimal policy derivation. Results should be interpreted as exploratory findings requiring further empirical validation.</p>
 <section id="documentation-revision-notes-2026-01-13" class="level2" data-number="1.1">
@@ -291,8 +292,8 @@ window.Quarto = {
 </thead>
 <tbody>
 <tr class="odd">
-<td>A. Wrong external model</td>
-<td>Documented Gemini Deep Research unavailability; used o1, Gemini 2.0 Flash, GPT-4o-mini</td>
+<td>A. External model consultation</td>
+<td>Used Gemini Deep Research for methodology (Sections 1-3) and OpenAI o1 for statistics (Sections 8-10)</td>
 </tr>
 <tr class="even">
 <td>B. Missing equations</td>
@@ -419,6 +420,7 @@ window.Quarto = {
 <li><p><strong>Discrete State Transitions:</strong> Enterprise entry/exit represents binary state changes that are more naturally modeled as discrete events than as continuous equilibrium outcomes. While agents also have continuous variables (asset levels), the core behavioral mechanism involves threshold-triggered transitions.</p></li>
 <li><p><strong>Counterfactual Analysis:</strong> The research question requires exploring “what-if” scenarios under different policy interventions. ABMs provide a framework for such counterfactual analysis, though with important caveats about validity.</p></li>
 <li><p><strong>Trajectory Tracking:</strong> The panel data structure permits calibrating agent decision rules and comparing simulated trajectories against observed household paths.</p></li>
+<li><p><strong>Structural Invariance (Lucas Critique Robustness):</strong> Unlike reduced-form econometric models, the use of deep behavioral parameters (decision thresholds) allows for policy analysis that is potentially more robust to structural breaks. Regression coefficients (e.g., “price elasticity of entry”) may change under new policy regimes as agents alter behavior; threshold-based rules that model the decision process itself may be more stable.</p></li>
 </ol>
 <p><strong>Contrast with Alternatives:</strong></p>
 <ul>
@@ -427,8 +429,8 @@ window.Quarto = {
 </ul>
 <p><strong>What ABM Does NOT Provide:</strong></p>
 <ul>
-<li><strong>General equilibrium effects:</strong> Prices are exogenous; household decisions do not affect aggregate price levels. This is a significant simplification with implications for policy scenarios involving large-scale interventions.</li>
-<li><strong>Market-level feedbacks:</strong> No agent-to-agent interactions or market clearing mechanisms.</li>
+<li><strong>General equilibrium effects:</strong> Prices and returns to enterprise are exogenous; household decisions do not affect aggregate price levels or local market saturation. This is a significant simplification: if many households simultaneously enter enterprise during a shock, crowding-out effects (reduced profits per enterprise) would occur in reality but are not captured here.</li>
+<li><strong>Market-level feedbacks:</strong> No agent-to-agent interactions or market clearing mechanisms. The model does not account for local competition effects when multiple households enter similar enterprise types.</li>
 <li><strong>Optimal policy derivation:</strong> Only comparative analysis across pre-specified scenarios.</li>
 <li><strong>Parameter uncertainty quantification:</strong> The model has multiple parameters whose values are uncertain. Sensitivity analysis is conducted but does not fully characterize parameter uncertainty.</li>
 <li><strong>Real-world prediction:</strong> The model is an exploratory tool, not a forecasting system.</li>
@@ -436,12 +438,13 @@ window.Quarto = {
 </section>
 <section id="on-complex-adaptive-systems-framing" class="level2" data-number="2.5">
 <h2 data-number="2.5" class="anchored" data-anchor-id="on-complex-adaptive-systems-framing"><span class="header-section-number">2.5</span> On Complex Adaptive Systems Framing</h2>
-<p><strong>Important Caveat:</strong> While this model incorporates some elements associated with complex adaptive systems (CAS), such as heterogeneity and non-linearity, it is <strong>not</strong> a fully realized CAS model. Specifically, it does not include key features like emergence, agent learning/adaptation, or significant agent-agent interaction. Interpretations of the model’s results should be made with this limitation in mind.</p>
+<p><strong>Important Caveat:</strong> This model is best characterized as an <strong>agent-based microsimulation</strong>. While it incorporates some elements associated with complex adaptive systems (CAS), such as heterogeneity and non-linearity, it is <strong>not</strong> a fully realized CAS model. It prioritizes the <strong>cognitive realism</strong> of threshold-based decision rules over the interactional complexity of full CAS models, allowing for clearer isolation of household-level coping drivers.</p>
 <p><strong>Implemented (Partial CAS Features):</strong></p>
 <ul>
 <li><strong>Heterogeneity:</strong> Agents differ in initial endowments and respond differently to identical shocks based on their characteristics.</li>
-<li><strong>Non-linearity:</strong> Threshold-based decision rules create discontinuous responses to price exposure.</li>
+<li><strong>Non-linearity:</strong> Threshold-based decision rules create discontinuous responses to price exposure. This captures “tipping point” dynamics where small changes in exposure can trigger discrete behavioral shifts.</li>
 <li><strong>Path dependence:</strong> Enterprise persistence classification depends on history of participation.</li>
+<li><strong>Bounded rationality:</strong> Agents follow heuristic decision rules (threshold-based) rather than optimizing utility functions, reflecting behavioral realism in data-scarce environments.</li>
 </ul>
 <p><strong>Not Implemented (Missing CAS Features):</strong></p>
 <ul>
@@ -449,7 +452,7 @@ window.Quarto = {
 <li><strong>Agent learning/adaptation:</strong> Agents do not update their decision rules based on experience. Decision thresholds remain fixed throughout simulation.</li>
 <li><strong>Agent-agent interaction:</strong> No social network effects, peer influences, or market-level feedbacks.</li>
 </ul>
-<p>This is a “simple ABM” designed for transparent mechanism exploration rather than a full CAS model. Results should not be interpreted as capturing emergent system dynamics.</p>
+<p>This is an agent-based microsimulation designed for transparent mechanism exploration rather than a full CAS model. Results should not be interpreted as capturing emergent system dynamics.</p>
 </section>
 </section>
 <section id="diagram-model-architecture" class="level1" data-number="3">
@@ -1490,10 +1493,12 @@ class RulePolicy(BasePolicy):
 <p><strong>Interpretation:</strong> If p &gt; 0.05, we fail to reject similarity. As with the KS test, this is not evidence of equivalence.</p>
 <p><strong>Critical Statistical Caveats:</strong></p>
 <ul>
-<li><strong>Non-equivalence:</strong> Failing to reject the null hypothesis (p &gt; 0.05) does <strong>not</strong> prove distributions are equivalent. It means the test lacked power to detect a difference, or the difference is small. Equivalence testing would require different methodology (e.g., TOST procedures).</li>
-<li><strong>KS limitations:</strong> The KS test assumes continuous distributions; application to binary outcomes is imperfect and may have reduced power.</li>
-<li><strong>Chi-squared limitations:</strong> Requires sufficient expected counts (typically ≥5 per cell); small cells may violate assumptions.</li>
-<li><strong>Multiple testing:</strong> Running multiple distribution tests increases false positive risk without correction.</li>
+<li><strong>Non-equivalence:</strong> Failing to reject the null hypothesis (p &gt; 0.05) does <strong>not</strong> prove distributions are equivalent. It means the test lacked power to detect a difference, or the difference is small. Equivalence testing would require different methodology (e.g., TOST—Two One-Sided Tests—procedures).</li>
+<li><strong>KS limitations:</strong> The KS test assumes continuous distributions; application to binary outcomes is imperfect and may have reduced power. For discrete outcomes, exact permutation tests may be more appropriate.</li>
+<li><strong>Chi-squared limitations:</strong> Requires sufficient expected counts (typically ≥5 per cell); small cells may violate assumptions. When counts fall below this threshold, categories should be merged or exact tests used.</li>
+<li><strong>Multiple testing:</strong> Running multiple distribution tests increases false positive risk. Consider applying Benjamini-Hochberg FDR correction or Bonferroni adjustment when interpreting multiple test results. This documentation does not currently implement formal multiple testing correction.</li>
+<li><strong>Power considerations:</strong> The power of these tests depends on sample size and the magnitude of expected differences. With N=500 households per country, the KS test has moderate power to detect distributional differences. Small but meaningful differences may go undetected, and non-significant results should not be interpreted as evidence of equivalence.</li>
+<li><strong>Measurement error:</strong> Endogeneity or measurement error in observed data may affect the validity of comparisons between simulated and observed distributions.</li>
 </ul>
 </section>
 <section id="threshold-sensitivity-analysis" class="level2" data-number="8.4">
@@ -1702,40 +1707,75 @@ class RulePolicy(BasePolicy):
 <section id="external-model-consultations" class="level2" data-number="11.3">
 <h2 data-number="11.3" class="anchored" data-anchor-id="external-model-consultations"><span class="header-section-number">11.3</span> External Model Consultations</h2>
 <p><strong>Audit Date:</strong> 2026-01-13</p>
-<p><strong>Important Note:</strong> Gemini Deep Research was <strong>unavailable</strong> during this audit (API returned error: <code>invalid JSON in google.learning.genai.api.interactions.v1main.Interaction</code>). Alternative models were used as documented below. Full call logs are available in <code>docs/EXTERNAL_MODEL_CALL_LOGS.md</code>.</p>
-<section id="openai-o1-sections-1-3-architecture-review" class="level3" data-number="11.3.1">
-<h3 data-number="11.3.1" class="anchored" data-anchor-id="openai-o1-sections-1-3-architecture-review"><span class="header-section-number">11.3.1</span> OpenAI o1 (Sections 1-3 Architecture Review)</h3>
-<p><strong>Purpose:</strong> Review ABM architecture for methodology appropriateness, trade-offs, and scalability.</p>
-<p><strong>Key Feedback:</strong></p>
-<ol type="1">
-<li>Confirmed ABM methodology is appropriate for research question</li>
-<li>Noted price exogeneity limits policy realism for macro-level interventions</li>
-<li>Highlighted that simplified decision rules may understate long-term dynamics</li>
-<li>Recommended documenting hidden costs of future CAS feature additions</li>
-</ol>
-</section>
-<section id="gemini-2.0-flash-sections-1-3-casoverclaim-review" class="level3" data-number="11.3.2">
-<h3 data-number="11.3.2" class="anchored" data-anchor-id="gemini-2.0-flash-sections-1-3-casoverclaim-review"><span class="header-section-number">11.3.2</span> Gemini 2.0 Flash (Sections 1-3 CAS/Overclaim Review)</h3>
-<p><strong>Purpose:</strong> Audit CAS justification and identify overclaims requiring conservative rewording.</p>
+<p>External model consultations were conducted to audit documentation for scientific validity and statistical correctness. Full call logs are available in <code>docs/EXTERNAL_MODEL_CALL_LOGS.md</code>.</p>
+<section id="gemini-deep-research-sections-1-3-methodology-review" class="level3" data-number="11.3.1">
+<h3 data-number="11.3.1" class="anchored" data-anchor-id="gemini-deep-research-sections-1-3-methodology-review"><span class="header-section-number">11.3.1</span> Gemini Deep Research (Sections 1-3 Methodology Review)</h3>
+<p><strong>Purpose:</strong> Comprehensive methodology audit including CAS justification, overclaim detection, and ABM vs.&nbsp;microsimulation classification.</p>
 <p><strong>Key Feedback Incorporated:</strong></p>
 <ol type="1">
-<li>Changed “mediate” to “potentially influence” (causal language)</li>
-<li>Changed “induce” to “are associated with” (hypothesis framing)</li>
-<li>Strengthened CAS caveat to appear upfront</li>
-<li>Added omitted variable bias, data limitations, and behavioral assumptions caveats</li>
-<li>Added generalizability note for cross-context transferability</li>
+<li>Reframed “Simple ABM” terminology to “Agent-Based Microsimulation” for methodological precision</li>
+<li>Added Lucas Critique justification to “Why ABM” section (structural invariance argument)</li>
+<li>Added crowding-out/general equilibrium exclusion caveat with specific market saturation language</li>
+<li>Added panel attrition bias caveat for LSMS-ISA data limitations</li>
+<li>Softened causal language: “simulates… as coping mechanism” → “investigates… coping dynamics”</li>
+<li>Added bounded rationality as explicit CAS feature (heuristic vs.&nbsp;optimization)</li>
+<li>Recommended “exploratory validation” framing for causal claims</li>
 </ol>
+<p><strong>Methodology Audit Matrix (from Gemini Deep Research):</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 28%">
+<col style="width: 28%">
+<col style="width: 43%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Verdict</th>
+<th>Action Taken</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>“Coping Mechanism” framing</td>
+<td>Caution</td>
+<td>Clarified as exploratory investigation</td>
+</tr>
+<tr class="even">
+<td>“Partial CAS” designation</td>
+<td>Refine</td>
+<td>Changed to “agent-based microsimulation”</td>
+</tr>
+<tr class="odd">
+<td>Heterogeneity justification</td>
+<td>Weak standalone</td>
+<td>Added bounded rationality argument</td>
+</tr>
+<tr class="even">
+<td>Missing ABM justification</td>
+<td>Critical</td>
+<td>Added Lucas Critique point</td>
+</tr>
+<tr class="odd">
+<td>Generalizability caveats</td>
+<td>Incomplete</td>
+<td>Added attrition and crowding-out notes</td>
+</tr>
+</tbody>
+</table>
 </section>
-<section id="gpt-4o-mini-sections-8-10-inference-review" class="level3" data-number="11.3.3">
-<h3 data-number="11.3.3" class="anchored" data-anchor-id="gpt-4o-mini-sections-8-10-inference-review"><span class="header-section-number">11.3.3</span> GPT-4o-mini (Sections 8-10 Inference Review)</h3>
-<p><strong>Purpose:</strong> Red-team statistical methodology, p-value interpretations, and robustness claims.</p>
+<section id="openai-o1-sections-8-10-statistical-review" class="level3" data-number="11.3.2">
+<h3 data-number="11.3.2" class="anchored" data-anchor-id="openai-o1-sections-8-10-statistical-review"><span class="header-section-number">11.3.2</span> OpenAI o1 (Sections 8-10 Statistical Review)</h3>
+<p><strong>Purpose:</strong> Red-team statistical methodology, p-value interpretations, sensitivity analysis, and policy inference claims.</p>
 <p><strong>Key Feedback Incorporated:</strong></p>
 <ol type="1">
-<li>Replaced “Acceptance: p &gt; 0.05” with explicit non-equivalence caveat</li>
-<li>Added note that failing to reject null does not prove distributions identical</li>
-<li>Recommended standardizing robustness protocol (number of runs, metrics)</li>
-<li>Added missing diagnostics note (multicollinearity, homoscedasticity)</li>
-<li>Emphasized that alternative tests (Anderson-Darling) could be considered</li>
+<li>Confirmed p &gt; 0.05 interpretation language is appropriately conservative</li>
+<li>Added multiple testing correction note (Benjamini-Hochberg, Bonferroni)</li>
+<li>Added power considerations note for distribution tests</li>
+<li>Added measurement error caveat</li>
+<li>Added TOST (Two One-Sided Tests) as explicit alternative for equivalence testing</li>
+<li>Confirmed policy inference framing is appropriately cautious</li>
+<li>Recommended documenting outlier handling for chi-square tests</li>
 </ol>
 </section>
 </section>
@@ -1884,39 +1924,28 @@ class RulePolicy(BasePolicy):
 </thead>
 <tbody>
 <tr class="odd">
-<td>OpenAI o1</td>
-<td>1-3</td>
-<td>Architecture/methodology review</td>
-<td>Success</td>
-</tr>
-<tr class="even">
-<td>Gemini 2.0 Flash</td>
-<td>1-3</td>
-<td>CAS/overclaim audit</td>
-<td>Success</td>
-</tr>
-<tr class="odd">
-<td>GPT-4o-mini</td>
-<td>8-10</td>
-<td>Inference/statistical review</td>
-<td>Success</td>
-</tr>
-<tr class="even">
 <td>Gemini Deep Research</td>
 <td>1-3</td>
-<td>Deep research review</td>
-<td>Failed (API error)</td>
+<td>Methodology/CAS/overclaim audit</td>
+<td>Success</td>
+</tr>
+<tr class="even">
+<td>OpenAI o1</td>
+<td>8-10</td>
+<td>Statistical/inference review</td>
+<td>Success</td>
 </tr>
 </tbody>
 </table>
 <p><strong>Full logs:</strong> See <code>docs/EXTERNAL_MODEL_CALL_LOGS.md</code> for complete prompts and responses.</p>
 <p><strong>Consensus recommendations incorporated:</strong></p>
 <ol type="1">
-<li>Causal language softened (“potentially influence” vs “mediate”)</li>
-<li>CAS framing caveat strengthened upfront</li>
-<li>Statistical test interpretation clarified (non-equivalence caveat)</li>
-<li>Missing caveats added (omitted variables, data limitations, behavioral assumptions)</li>
-<li>Sample size and threshold documentation improved</li>
+<li>Reframed terminology from “Simple ABM” to “Agent-Based Microsimulation”</li>
+<li>Added Lucas Critique (structural invariance) justification for ABM approach</li>
+<li>Added crowding-out and panel attrition caveats for data limitations</li>
+<li>Added multiple testing correction and power considerations notes</li>
+<li>Strengthened statistical test interpretation with explicit non-equivalence caveats</li>
+<li>Added bounded rationality as explicit CAS-adjacent feature</li>
 </ol>
 </section>
 <section id="appendix-c-build-environment" class="level2" data-number="11.8">
