@@ -778,6 +778,197 @@ def calibrate(
 
 
 @app.command()
+def run_sim_synthetic(
+    calibration: Path = typer.Argument(
+        ...,
+        help="Path to calibration.json artifact",
+    ),
+    n_households: int = typer.Option(
+        1000,
+        "--households",
+        "-n",
+        help="Number of synthetic households",
+    ),
+    seed: int = typer.Option(42, "--seed", "-s", help="Random seed"),
+    scenario: str = typer.Option("synthetic", "--scenario", "-S", help="Scenario name"),
+    policy: str = typer.Option(
+        "llm_stub",
+        "--policy",
+        "-p",
+        help="Policy type (llm_stub, llm_o4mini, rule)",
+    ),
+    llm_temperature: float = typer.Option(
+        0.6,
+        "--llm-temperature",
+        help="Temperature for LLM sampling",
+    ),
+    llm_k_samples: int = typer.Option(
+        5,
+        "--llm-k-samples",
+        help="Number of samples for LLM voting",
+    ),
+    cache_decisions: bool = typer.Option(
+        True,
+        "--cache-decisions/--no-cache",
+        help="Enable decision caching",
+    ),
+    compare_to_lsms: Path | None = typer.Option(
+        None,
+        "--compare-to-lsms",
+        help="Path to LSMS derived targets for comparison",
+    ),
+    output_dir: Path = typer.Option(
+        Path("outputs/synthetic"),
+        "--output-dir",
+        "-o",
+        help="Output directory",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+) -> None:
+    """Run synthetic ABM with calibrated distributions and LLM decisions.
+
+    Generates a synthetic panel from the calibration artifact, then runs
+    the ABM with the specified policy. Optionally compares outcomes to
+    LSMS stylized facts.
+
+    Example:
+        abm run-sim-synthetic artifacts/calibration/tanzania/calibration.json \\
+          --policy llm_o4mini --households 1000 --llm-k-samples 5
+
+        abm run-sim-synthetic artifacts/calibration/tanzania/calibration.json \\
+          --compare-to-lsms data/processed/tanzania/derived/household_targets.parquet
+    """
+    import json
+    import os
+
+    from abm_enterprise.model import run_synthetic_simulation, compare_simulation_to_lsms
+    from abm_enterprise.outputs import write_outputs
+
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(level=log_level, output_dir=output_dir)
+
+    typer.echo(f"Running synthetic simulation")
+    typer.echo(f"  Calibration: {calibration}")
+    typer.echo(f"  Households: {n_households}")
+    typer.echo(f"  Policy: {policy}")
+
+    if not calibration.exists():
+        typer.echo(f"Error: Calibration file not found: {calibration}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        # Create policy
+        if policy == "llm_stub":
+            from abm_enterprise.policies.llm import MultiSampleLLMPolicyFactory
+
+            llm_policy = MultiSampleLLMPolicyFactory.create_stub_policy(
+                k_samples=llm_k_samples,
+                cache_enabled=cache_decisions,
+            )
+            typer.echo(f"  Using StubProvider (K={llm_k_samples})")
+
+        elif policy in ("llm_o4mini", "llm_openai"):
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                typer.echo("Error: OPENAI_API_KEY required for LLM policy", err=True)
+                raise typer.Exit(code=1)
+
+            from abm_enterprise.policies.llm import MultiSampleLLMPolicyFactory
+
+            llm_policy = MultiSampleLLMPolicyFactory.create_o4mini_policy(
+                api_key=api_key,
+                temperature=llm_temperature,
+                k_samples=llm_k_samples,
+                cache_enabled=cache_decisions,
+            )
+            typer.echo(f"  Using o4-mini (T={llm_temperature}, K={llm_k_samples})")
+
+        elif policy == "rule":
+            from abm_enterprise.policies.rule import RulePolicy
+
+            llm_policy = RulePolicy()
+            typer.echo("  Using RulePolicy (deterministic)")
+
+        else:
+            typer.echo(f"Unknown policy: {policy}", err=True)
+            raise typer.Exit(code=1)
+
+        # Run synthetic simulation
+        model, outcomes = run_synthetic_simulation(
+            calibration_path=calibration,
+            policy=llm_policy,
+            n_households=n_households,
+            seed=seed,
+            scenario=scenario,
+        )
+
+        # Write outputs
+        output_subdir = output_dir / scenario
+        output_paths = write_outputs(model, output_subdir)
+
+        typer.echo(f"\nSimulation complete. Outputs written to {output_subdir}")
+        typer.echo(f"  - Outcomes: {output_paths['outcomes']}")
+        typer.echo(f"  - Manifest: {output_paths['manifest']}")
+
+        # Summary statistics
+        typer.echo("\nEnterprise participation rate by wave:")
+        enterprise_rate = outcomes.groupby("wave")["enterprise_status"].mean()
+        for wave, rate in enterprise_rate.items():
+            typer.echo(f"  Wave {wave}: {rate:.1%}")
+
+        # Classification distribution
+        if "classification" in outcomes.columns:
+            class_counts = outcomes.groupby("classification").size()
+            typer.echo("\nClassification distribution:")
+            for cls, count in class_counts.items():
+                pct = count / len(outcomes) * 100
+                typer.echo(f"  {cls}: {count} ({pct:.1f}%)")
+
+        # Compare to LSMS if requested
+        if compare_to_lsms is not None:
+            if not compare_to_lsms.exists():
+                typer.echo(f"Warning: LSMS file not found: {compare_to_lsms}", err=True)
+            else:
+                import pandas as pd
+
+                typer.echo("\nComparing to LSMS stylized facts...")
+                lsms_df = pd.read_parquet(compare_to_lsms)
+
+                comparisons = compare_simulation_to_lsms(outcomes, lsms_df)
+
+                # Save comparison
+                comparison_path = output_subdir / "lsms_comparison.json"
+                with open(comparison_path, "w") as f:
+                    json.dump(comparisons, f, indent=2, default=str)
+                typer.echo(f"  Comparison saved: {comparison_path}")
+
+                # Print summary
+                typer.echo("\n  Enterprise prevalence:")
+                sim_prev = comparisons["enterprise_prevalence"]["simulated"]
+                obs_prev = comparisons["enterprise_prevalence"]["observed"]
+                for wave in sorted(set(sim_prev.keys()) | set(obs_prev.keys())):
+                    s = sim_prev.get(wave, 0)
+                    o = obs_prev.get(wave, 0)
+                    typer.echo(f"    Wave {wave}: Sim={s:.1%} vs Obs={o:.1%}")
+
+                typer.echo("\n  Transition rates:")
+                sim_rates = comparisons["transition_rates"]["simulated"]
+                obs_rates = comparisons["transition_rates"]["observed"]
+                typer.echo(f"    Entry: Sim={sim_rates['enter_rate']:.1%} vs Obs={obs_rates['enter_rate']:.1%}")
+                typer.echo(f"    Exit:  Sim={sim_rates['exit_rate']:.1%} vs Obs={obs_rates['exit_rate']:.1%}")
+
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+    except Exception as e:
+        typer.echo(f"Simulation failed: {e}", err=True)
+        import traceback
+        if verbose:
+            traceback.print_exc()
+        raise typer.Exit(code=1) from None
+
+
+@app.command()
 def eval_direct(
     train_country: str = typer.Option(
         "tanzania",
@@ -1052,14 +1243,15 @@ def info() -> None:
     typer.echo(f"  Version: {__version__}")
     typer.echo(f"  Mesa version: {mesa.__version__}")
     typer.echo("\nAvailable commands:")
-    typer.echo("  run-toy          Run with synthetic data")
-    typer.echo("  run-sim          Run with real/synthetic data")
-    typer.echo("  calibrate        Fit calibration distributions")
-    typer.echo("  eval-direct      Evaluate direct prediction")
-    typer.echo("  ingest-data      Download and process LSMS data")
-    typer.echo("  derive-targets   Build derived target tables")
-    typer.echo("  validate-schema  Validate outputs")
-    typer.echo("  info             Show this information")
+    typer.echo("  run-toy            Run with synthetic data (quick test)")
+    typer.echo("  run-sim            Run with real/synthetic data")
+    typer.echo("  run-sim-synthetic  Run synthetic ABM with LLM policy")
+    typer.echo("  calibrate          Fit calibration distributions")
+    typer.echo("  eval-direct        Evaluate direct prediction")
+    typer.echo("  ingest-data        Download and process LSMS data")
+    typer.echo("  derive-targets     Build derived target tables")
+    typer.echo("  validate-schema    Validate outputs")
+    typer.echo("  info               Show this information")
 
 
 if __name__ == "__main__":

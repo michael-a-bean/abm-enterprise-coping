@@ -365,3 +365,201 @@ def compute_calibration_thresholds(
         "asset_threshold": asset_threshold,
         "exit_asset_threshold": exit_asset_threshold,
     }
+
+
+def run_synthetic_simulation(
+    calibration_path: Path | str,
+    policy: BasePolicy,
+    n_households: int = 1000,
+    seed: int = 42,
+    scenario: str = "synthetic",
+) -> tuple["EnterpriseCopingModel", pd.DataFrame]:
+    """Run synthetic ABM with calibrated distributions and LLM policy.
+
+    Generates synthetic household panel from calibration artifact,
+    then runs the ABM with the provided policy to produce outcomes.
+
+    Args:
+        calibration_path: Path to calibration.json artifact.
+        policy: Policy for agent decisions (typically MultiSampleLLMPolicy).
+        n_households: Number of synthetic households to generate.
+        seed: Random seed for reproducibility.
+        scenario: Scenario name for outputs.
+
+    Returns:
+        Tuple of (model, outcomes_dataframe).
+
+    Example:
+        >>> from abm_enterprise.policies.llm import MultiSampleLLMPolicyFactory
+        >>> policy = MultiSampleLLMPolicyFactory.create_stub_policy(k_samples=5)
+        >>> model, outcomes = run_synthetic_simulation(
+        ...     "artifacts/calibration/tanzania/calibration.json",
+        ...     policy=policy,
+        ...     n_households=500,
+        ... )
+    """
+    from abm_enterprise.calibration import CalibrationArtifact
+    from abm_enterprise.data.synthetic import (
+        SyntheticPanelConfig,
+        SyntheticPanelGenerator,
+    )
+
+    calibration_path = Path(calibration_path)
+
+    # Load calibration artifact
+    calibration = CalibrationArtifact.load(calibration_path)
+
+    logger.info(
+        "Running synthetic simulation",
+        calibration_source=calibration.country_source,
+        n_households=n_households,
+        seed=seed,
+    )
+
+    # Generate synthetic panel
+    set_seed(seed)
+    config = SyntheticPanelConfig(
+        n_households=n_households,
+        waves=calibration.waves,
+        seed=seed,
+    )
+    generator = SyntheticPanelGenerator(calibration, config)
+    synthetic_panel = generator.generate()
+
+    # Map column names to ABM expectations
+    synthetic_panel = synthetic_panel.rename(columns={
+        "enterprise_status": "enterprise_status",  # Already correct
+    })
+
+    # Create simulation config
+    sim_config = SimulationConfig(
+        country=calibration.country_source,
+        scenario=scenario,
+        seed=seed,
+        num_waves=len(calibration.waves),
+    )
+
+    # Run model with synthetic panel and provided policy
+    model = EnterpriseCopingModel(
+        config=sim_config,
+        household_data=synthetic_panel,
+        policy=policy,
+    )
+    model.run()
+
+    outcomes = model.get_outcomes_dataframe()
+
+    logger.info(
+        "Synthetic simulation complete",
+        total_outcomes=len(outcomes),
+        enterprise_rate=outcomes["enterprise_status"].mean(),
+    )
+
+    return model, outcomes
+
+
+def compare_simulation_to_lsms(
+    outcomes: pd.DataFrame,
+    lsms_targets: pd.DataFrame,
+) -> dict[str, Any]:
+    """Compare simulation outcomes to LSMS stylized facts.
+
+    Computes key comparisons between simulated and observed data:
+    - Enterprise prevalence by wave
+    - Entry/exit rates
+    - Response heterogeneity by assets
+
+    Args:
+        outcomes: Simulation outcomes from ABM.
+        lsms_targets: Observed LSMS derived targets.
+
+    Returns:
+        Dictionary with comparison metrics.
+    """
+    comparisons = {}
+
+    # Enterprise prevalence by wave
+    sim_prev = outcomes.groupby("wave")["enterprise_status"].mean()
+    obs_prev = lsms_targets.groupby("wave")["enterprise_indicator"].mean()
+
+    comparisons["enterprise_prevalence"] = {
+        "simulated": sim_prev.to_dict(),
+        "observed": obs_prev.to_dict(),
+    }
+
+    # Calculate transition rates for simulation
+    sim_transitions = _compute_transition_rates(outcomes, "enterprise_status")
+    obs_transitions = _compute_transition_rates(lsms_targets, "enterprise_indicator")
+
+    comparisons["transition_rates"] = {
+        "simulated": sim_transitions,
+        "observed": obs_transitions,
+    }
+
+    # Asset-stratified enterprise rates
+    sim_by_assets = _stratify_by_assets(outcomes, "enterprise_status")
+    obs_by_assets = _stratify_by_assets(lsms_targets, "enterprise_indicator")
+
+    comparisons["enterprise_by_assets"] = {
+        "simulated": sim_by_assets,
+        "observed": obs_by_assets,
+    }
+
+    return comparisons
+
+
+def _compute_transition_rates(
+    df: pd.DataFrame,
+    enterprise_col: str,
+) -> dict[str, float]:
+    """Compute entry/exit/stay rates from panel data."""
+    # Sort by household and wave
+    df = df.sort_values(["household_id", "wave"])
+
+    transitions = {"enter": 0, "exit": 0, "stay_in": 0, "stay_out": 0, "total": 0}
+
+    for hh_id, group in df.groupby("household_id"):
+        statuses = group[enterprise_col].values
+        for i in range(len(statuses) - 1):
+            t0, t1 = statuses[i], statuses[i + 1]
+            transitions["total"] += 1
+            if t0 == 0 and t1 == 1:
+                transitions["enter"] += 1
+            elif t0 == 1 and t1 == 0:
+                transitions["exit"] += 1
+            elif t0 == 1 and t1 == 1:
+                transitions["stay_in"] += 1
+            else:
+                transitions["stay_out"] += 1
+
+    total = transitions["total"]
+    if total > 0:
+        return {
+            "enter_rate": transitions["enter"] / total,
+            "exit_rate": transitions["exit"] / total,
+            "stay_in_rate": transitions["stay_in"] / total,
+            "stay_out_rate": transitions["stay_out"] / total,
+            "n_transitions": total,
+        }
+    return {"enter_rate": 0, "exit_rate": 0, "stay_in_rate": 0, "stay_out_rate": 0, "n_transitions": 0}
+
+
+def _stratify_by_assets(
+    df: pd.DataFrame,
+    enterprise_col: str,
+    n_quantiles: int = 4,
+) -> dict[str, float]:
+    """Compute enterprise rate by asset quantile."""
+    df = df.copy()
+
+    # Handle different column names
+    asset_col = "assets_index" if "assets_index" in df.columns else "asset_index"
+
+    df["asset_quantile"] = pd.qcut(
+        df[asset_col],
+        q=n_quantiles,
+        labels=[f"Q{i+1}" for i in range(n_quantiles)],
+        duplicates="drop",
+    )
+
+    return df.groupby("asset_quantile")[enterprise_col].mean().to_dict()
