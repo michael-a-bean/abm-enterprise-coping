@@ -32,10 +32,23 @@ read_batch_simulations <- function(batch_dir) {
 
   # Read each simulation
   results <- lapply(seed_dirs, function(d) {
-    outcomes_path <- file.path(d, "household_outcomes.parquet")
-    manifest_path <- file.path(d, "manifest.json")
+    # Try multiple path patterns:
+    # 1. Direct: seed_N/household_outcomes.parquet (old toy mode structure)
+    # 2. Nested: seed_N/{country}/{scenario}/household_outcomes.parquet (new LSMS structure)
+    outcomes_paths <- c(
+      file.path(d, "household_outcomes.parquet"),
+      Sys.glob(file.path(d, "*", "*", "household_outcomes.parquet"))
+    )
 
-    if (!file.exists(manifest_path) && !dir.exists(outcomes_path)) {
+    outcomes_path <- NULL
+    for (p in outcomes_paths) {
+      if (dir.exists(p) || file.exists(p)) {
+        outcomes_path <- p
+        break
+      }
+    }
+
+    if (is.null(outcomes_path)) {
       return(NULL)
     }
 
