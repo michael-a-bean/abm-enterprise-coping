@@ -1,136 +1,147 @@
-# Research Synthesis: ABM Validation Methodology
+# Research Synthesis: ABM Manuscript Methodology
 **Date:** 2026-01-14
-**Sources:** OpenAI o3 deep research, Google Gemini deep research
+**Sources:** OpenAI o1, Gemini (gemini-2.5-flash-thinking)
 
-## Summary of Consensus Recommendations
+## Consensus Points (Strong Agreement)
 
-### 1. ODD+D Documentation
+Both sources strongly agree on:
 
-**Consensus:**
-- Document LLM prompt templates as model parameters in the "Details" section
-- Include temperature settings and constraint configurations
-- Provide pseudocode that maps directly to source code (with line numbers)
-- Specify context window contents as agent state variables
+### 1. Paper Structure
+- **Adopt:** Follow ODD protocol for model description
+- **Adopt:** Main text for narrative, appendices for detailed calibration/validation
+- **Adopt:** Separate conceptual framework from technical implementation
 
-**Adopted for this project:**
-- Already implemented: Detailed code references with file paths and line numbers
-- Already implemented: Prompt templates in `policies/prompts.py`
-- Already implemented: Constraint documentation in ODD+D section
+### 2. Epistemic Boundaries
+- **Adopt:** Be explicit that model lacks agent-agent interactions
+- **Adopt:** Avoid CAS/emergence language when not warranted
+- **Adopt:** Use "heterogeneous responses" and "aggregate outcomes" terminology
+- **Adopt:** Frame results as "model outputs under specified assumptions"
 
-### 2. Empirical Validation with LSMS-ISA
+### 3. POM Calibration Reporting
+- **Adopt:** Report multiple goodness-of-fit measures (not just K-S p-values)
+- **Adopt:** Use QQ plots, CDFs, and descriptive statistics
+- **Adopt:** Explicitly acknowledge and contextualize K-S test failures
+- **Adopt:** Report Gini coefficients and inequality measures for economic data
 
-**Consensus:**
-- Use Pattern-Oriented Modeling (POM) approach
-- Compare transition matrices using Frobenius norm or KL divergence
-- Stratify validation by asset quintile and credit access
-- Run "history-friendly" validation with real household initialization
+### 4. Sensitivity Analysis
+- **Adopt:** Document parameter ranges and experimental design
+- **Adopt:** Use response surfaces/heatmaps for visualization
+- **Adopt:** Report regression coefficients for parameter effects
+- **Adopt:** Include confidence intervals and uncertainty quantification
 
-**Adopted for this project:**
-- Transition matrix analysis in `validation_helpers.R::run_fe_regression()`
-- Stratified validation by threshold sensitivity (`run_threshold_sensitivity()`)
-- Already comparing simulated vs observed enterprise rates
+### 5. Behavior Search Framing
+- **Adopt:** Use "behavior search" or "exploration" NOT "optimization"
+- **Adopt:** Acknowledge limited seeds (2) as exploratory limitation
+- **Adopt:** Report landscape of behaviors, not just "best" candidate
+- **Adopt:** Recommend 30-100 seeds for robust validation (future work)
 
-### 3. LLM-Mediated Decisions
-
-**Consensus: "Intrinsicality, Instruction, Imitation" Framework**
-1. Test zero-shot behavior
-2. Provide risk-framed instructions
-3. Use few-shot examples from real data
-
-**Consensus on Error Mitigation:**
-- Enforce budget constraints programmatically (not just in prompts)
-- Monitor decision entropy for mode collapse
-- Use ensemble voting (K samples) for robustness
-
-**Adopted for this project:**
-- Already implemented: K=5 voting in `MultiSampleLLMPolicy`
-- Already implemented: Constraint validation in `policies/constraints.py`
-- Already implemented: Decision caching for reproducibility
-
-### 4. CAS Diagnostics
-
-**Consensus:**
-- Use Recurrence Quantification Analysis (RQA) for regime shift detection
-- Generate hysteresis loops (price down -> up recovery curves)
-- Plot phase portraits: state variable vs lagged value or two variables
-
-**Adopted for this project:**
-- Phase portraits implemented in `R/analysis_helpers.R::create_phase_portrait()`
-- Multi-seed phase portraits show trajectory variability
-- **GAP:** RQA not implemented (add to extensions)
-- **GAP:** Hysteresis loops not implemented
-
-### 5. Sensitivity Analysis
-
-**Consensus:**
-- Morris Method for screening (computationally efficient)
-- Sobol indices for critical parameters (S1 = direct, ST = with interactions)
-- FANOVA graphs for visualizing parameter interactions
-
-**Adopted for this project:**
-- Parameter sweep script created: `scripts/run_sweep.py`
-- 6x6 grid with 2 seeds = 72 runs completed
-- Heatmap visualization using `create_sensitivity_heatmap()`
-- **GAP:** Sobol indices not computed (consider `sensobol` R package)
-- **GAP:** FANOVA graphs not implemented
+### 6. Design vs. Results Separation
+- **Adopt:** LLM policy goes in Methods as "designed" or "planned"
+- **Adopt:** Results section contains ONLY executed policy outputs
+- **Adopt:** Discussion section elaborates on LLM potential
+- **Adopt:** Appendix contains full technical specification
 
 ---
 
-## Divergences Between Models
+## Divergences and Resolutions
 
-### Minor Differences
+### D1: Emergence Language
+- **o1:** Emphasizes avoiding all emergence language
+- **Gemini:** Allows "macro-level patterns from micro-level rules" with caveats
+- **Resolution:** Use Gemini's nuanced framing - acknowledge limited emergence while being precise about what IS captured (heterogeneity aggregation)
 
-1. **RQA vs simpler methods:**
-   - Gemini emphasized RQA strongly
-   - OpenAI mentioned it but also suggested simpler transition matrix analysis
-   - **Resolution:** Use transition matrices now (implemented), add RQA as extension
+### D2: K-S Test Alternative Metrics
+- **o1:** Suggests Anderson-Darling, AIC/BIC
+- **Gemini:** Suggests Wasserstein distance, Cramer-von Mises
+- **Resolution:** Report what's implemented (K-S, descriptive stats, QQ plots); mention alternatives as future improvement in limitations
 
-2. **Validation metrics:**
-   - Gemini: Frobenius norm + KL divergence
-   - OpenAI: Pattern-oriented modeling with multiple targets
-   - **Resolution:** Both valid; our FE regression approach is consistent with both
-
-3. **LLM calibration:**
-   - Gemini: Temperature tuning to match decision variance
-   - OpenAI: Few-shot learning from real cases
-   - **Resolution:** Adopt both - configurable temperature (implemented) and option for few-shot (extension)
+### D3: Sensitivity Method Depth
+- **o1:** Focus on standard regression surfaces
+- **Gemini:** Recommends Global SA (Sobol) and ML approaches
+- **Resolution:** Keep standard approach in main text; note Sobol as extension in future work (not currently implemented)
 
 ---
 
-## Action Items from Research
+## What to Adopt in Manuscript
 
-### Immediate (This Session)
+### Main Text Structure (following consensus):
+1. Abstract
+2. Introduction (problem + why ABM + contributions)
+3. Related Work
+4. Data (LSMS sources + provenance + limitations)
+5. Model (ODD+D summary; architecture diagram)
+6. Experimental Design (baseline/scenarios; seeds; N; sweep grid)
+7. Results
+   - 7A: Pattern-matching validation (POM framing)
+   - 7B: Parameter sweeps (calibrated synthetic, exploratory)
+8. Robustness & Diagnostics
+9. Limitations and Future Work
+10. Conclusion
+11. References
+12. Appendices
 
-1. [x] Replace synthetic heatmap with real sweep data
-2. [ ] Update report to load `outputs/sweeps/sweep_agg_latest.parquet`
-3. [ ] Add behavior search section with real results
-4. [ ] Update "Known Limitations" to reflect new capabilities
+### Key Wording Decisions:
+- Use "aggregate enterprise dynamics" not "emergent enterprise behavior"
+- Use "heterogeneous household responses" not "adaptive agents"
+- Use "behavior exploration" not "optimization"
+- Use "design-only" for LLM policy throughout
+- Use "exploratory" for 10-seed robustness analysis
 
-### Near-term Extensions
-
-1. Implement RQA using `ruptures` (Python) or `nonlinearTseries` (R)
-2. Add Sobol indices using `sensobol` R package
-3. Add hysteresis loop visualization
-4. Implement few-shot LLM calibration option
-
-### Documentation Updates
-
-1. Add AI-sourced guidance appendix (already exists, verify completeness)
-2. Update Evidence Map with new sweep outputs
-3. Document sweep parameters and seeds in reproducibility section
+### Figure/Table Requirements:
+- All captions include data source paths
+- Distinguish LSMS-derived vs. calibrated synthetic vs. uncalibrated
+- No plot titles (captions carry narrative per minimalist style)
+- Viridis scale for heatmaps (colorblind-safe)
 
 ---
 
-## Key Quotes from Research
+## What to Reject
 
-### On ODD+D for LLMs (Gemini)
-> "Standard ODD+D protocols must be expanded to document the 'Cognitive Engine' of LLM agents, specifically treating prompts as model parameters and context windows as state variables."
+### R1: Extensive Global SA
+- **Reason:** Not implemented in current codebase
+- **Note:** Mentioned as future extension
 
-### On Validation (OpenAI)
-> "To quantify the total error between the simulated matrix and the empirical matrix, calculate the Frobenius norm of the difference matrix."
+### R2: ML-based Sensitivity Analysis
+- **Reason:** Not implemented; over-engineering for current scope
+- **Note:** Not mentioned in limitations
 
-### On CAS Diagnostics (Gemini)
-> "Recurrence Quantification Analysis (RQA) and hysteresis loop visualization are the most robust methods for detecting regime shifts and path dependence in discrete-time economic simulations."
+### R3: Out-of-sample Validation for Behavior Search
+- **Reason:** Not feasible with 40 candidates, 2 seeds
+- **Action:** Explicitly acknowledge as limitation
 
-### On Sensitivity (OpenAI)
-> "Morris Method is the most practical screening technique for computationally expensive models... Sobol indices should be used for the critical parameters identified by Morris."
+### R4: Strong Claims About Emergence
+- **Reason:** Model lacks agent interactions, feedback loops
+- **Action:** Use careful language throughout
+
+---
+
+## Action Items for Paper
+
+1. Create docs/research/ directory with raw outputs
+2. Write docs/paper.qmd following synthesized structure
+3. Import validated figures from docs/abm_report.qmd
+4. Add explicit data source annotations to all figures
+5. Create REPRODUCIBILITY.md with commands
+6. Add new references to references.bib
+7. Render and QA
+
+---
+
+## New References to Add
+
+From o1:
+- Bankes, S. (1993). Exploratory modeling for policy analysis
+- Clauset, A., et al. (2009). Power-law distributions in empirical data
+- Epstein, J. (2008). Why model?
+- Gilbert, N. (2008). Agent-Based Models
+- Luke, S. (2013). Essentials of Metaheuristics
+
+From Gemini:
+- Pianosi, F., et al. (2016). Sensitivity analysis of environmental models
+- Macal, C. M., & North, M. J. (2010). Tutorial on agent-based modeling
+
+Already in references.bib:
+- Grimm et al. (2006, 2010, 2020) - ODD protocol
+- Dercon (2002) - Income risk
+- Mesa (2024)
+- LSMS-ISA
