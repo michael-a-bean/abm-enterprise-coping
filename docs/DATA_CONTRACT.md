@@ -1,8 +1,8 @@
 # Data Contract for ABM Enterprise Coping Model
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2026-01-14
-**Status:** DRAFT - Pending implementation
+**Status:** ACTIVE - FLAG 3+4 remediation complete
 
 ## Definitions
 
@@ -35,15 +35,22 @@ A **scenario** is a named configuration specifying:
 - Parameter overrides: Thresholds, sample sizes, etc.
 
 **Canonical scenarios:**
-| Scenario Name | Country | Data Source | Policy | N | Waves |
-|---------------|---------|-------------|--------|---|-------|
-| `tanzania/baseline` | Tanzania | LSMS-derived | RulePolicy | 500 | 4 |
-| `ethiopia/baseline` | Ethiopia | LSMS-derived | RulePolicy | 500 | 3 |
-| `toy` | Tanzania | Synthetic | None | 100 | 4 |
-| `sweep` | Tanzania | Synthetic* | RulePolicy | 100 | 4 |
-| `search` | Tanzania | Synthetic* | RulePolicy | 100 | 4 |
+| Scenario Name | Country | Data Source | Policy | N | Waves | Notes |
+|---------------|---------|-------------|--------|---|-------|-------|
+| `tanzania/baseline` | Tanzania | LSMS-derived | None | 500 | 4 | Primary validated baseline |
+| `ethiopia/baseline` | Ethiopia | LSMS-derived | None | 500 | 3 | Secondary validation |
+| `batch/lsms` | Tanzania | LSMS-derived | None | 500 | 4 | Multi-seed robustness (10 seeds) |
+| `batch/calibrated` | Tanzania | Calibrated synthetic | None | 500 | 4 | Calibrated sensitivity |
+| `toy` | Tanzania | Uncalibrated synthetic | None | 100 | 4 | Quick testing only |
+| `sweep` | Tanzania | Uncalibrated synthetic* | RulePolicy | 100 | 4 | Exploratory parameter sweep |
+| `search` | Tanzania | Uncalibrated synthetic* | RulePolicy | 100 | 4 | Exploratory behavior search |
 
-*Note: Sweep/Search currently use uncalibrated synthetic data. See FLAG 1 in DATA_AUDIT.md.
+*Note: Sweep/Search currently use uncalibrated synthetic data. FLAG 1 remediation will add calibrated versions.
+
+**Canonical N values:**
+- **LSMS-derived:** N = actual household count from LSMS (500 for Tanzania, varies by country)
+- **Calibrated synthetic:** N = 500 (matches LSMS scale)
+- **Exploratory synthetic:** N = 100 (fast iteration)
 
 ### Sweep Cell
 A **sweep cell** is a single point in parameter space defined by:
@@ -180,17 +187,57 @@ outputs/search/
 
 ```
 outputs/batch/
-├── seed_{N}/
-│   ├── manifest.json
-│   └── household_outcomes.parquet/
-└── ...
+├── {data_source}/                    # lsms | calibrated | synthetic_uncalibrated
+│   ├── batch_manifest.json           # REQUIRED - aggregate batch metadata
+│   ├── seed_{N}/
+│   │   ├── {country}/{scenario}/
+│   │   │   ├── manifest.json
+│   │   │   └── household_outcomes.parquet/
+│   └── ...
+```
+
+**batch_manifest.json Schema:**
+```json
+{
+  "batch_id": "string",
+  "timestamp": "YYYYMMDD_HHMMSS",
+  "git_commit": "string",
+  "config": {
+    "data_source": "string (lsms|calibrated|synthetic_uncalibrated)",
+    "calibration_path": "string|null",
+    "country": "string",
+    "scenario": "string",
+    "num_waves": "int",
+    "seeds": [int],
+    "num_households": "int"
+  },
+  "seeds_completed": [int],
+  "seeds_failed": [int],
+  "total_runs": "int",
+  "run_paths": ["string"]
+}
 ```
 
 **Batch contract:**
 - All batch runs MUST use identical parameters except seed
-- All batch runs MUST use the same data source (all synthetic OR all LSMS-derived)
+- All batch runs MUST use the same data source (all LSMS OR all calibrated OR all uncalibrated)
+- `batch_manifest.json` MUST be present at batch root
 - Minimum 5 seeds for robustness analysis
 - Recommended 10+ seeds for CV estimation
+- Current batch: 10 seeds (seeds 1-10), LSMS-derived
+
+**Batch generation command:**
+```bash
+# LSMS-derived batch (current)
+python scripts/run_batch.py --data-source lsms --seeds 10
+
+# Calibrated synthetic batch (after FLAG 1)
+python scripts/run_batch.py --data-source calibrated \
+  --calibration artifacts/calibration/tanzania/calibration.json --seeds 10
+
+# Verify consistency
+python scripts/run_batch.py --verify outputs/batch/lsms
+```
 
 ## Data Source Classification
 
@@ -229,8 +276,27 @@ Report sections presenting empirical results MUST NOT combine:
 
 ## Implementation Checklist
 
-- [ ] Update `scripts/run_sweep.py` to add `data_source` field
-- [ ] Update `scripts/run_behavior_search.py` to add `data_source` and `target_source` fields
-- [ ] Create calibration-aware sweep runner option
+**FLAG 3+4 (Baseline Standardization) - COMPLETE:**
+- [x] Create `scripts/run_batch.py` with data source classification
+- [x] Generate LSMS-derived batch outputs (10 seeds)
+- [x] Add `batch_manifest.json` schema to contract
+- [x] Document canonical N values (500 for LSMS, 100 for exploratory)
+
+**FLAG 1 (Calibrated Synthetic) - PENDING:**
+- [ ] Run calibration: `abm calibrate --country tanzania`
+- [ ] Update `scripts/run_sweep.py` to add `--calibration-path` option
+- [ ] Update `scripts/run_behavior_search.py` to add `--calibration-path` option
+- [ ] Generate calibrated sweep outputs
+- [ ] Add calibration fit plots to report
+
+**FLAG 6 (Search Targets) - PENDING:**
+- [ ] Refactor search to load targets from LSMS derived data
+- [ ] Add validation metrics (in-sample vs out-of-sample)
+
+**FLAG 2 (LLM Policy) - PENDING:**
+- [ ] Generate LLM policy runs OR formalize execution checklist
+
+**Report Integration - PENDING:**
+- [ ] Update report to use `outputs/batch/lsms` for robustness analysis
 - [ ] Add manifest validation to report rendering
 - [ ] Add data source badges to figure captions

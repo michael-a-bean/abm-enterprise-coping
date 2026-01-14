@@ -113,10 +113,23 @@ These are described as "LSMS stylized facts" but are not dynamically loaded from
 |------|----------|----------|--------|
 | FLAG 1 | CRITICAL | Data mixing | OPEN - Requires fix |
 | FLAG 2 | HIGH | LLM claims unsupported | OPEN - Requires report update |
-| FLAG 3 | MEDIUM | Sample size inconsistency | OPEN - Document limitation |
-| FLAG 4 | MEDIUM | Batch configuration mismatch | OPEN - Requires rerun or documentation |
+| FLAG 3 | MEDIUM | Sample size inconsistency | **RESOLVED** - Documented canonical N values |
+| FLAG 4 | MEDIUM | Batch configuration mismatch | **RESOLVED** - Regenerated with LSMS data |
 | FLAG 5 | LOW | Classification consistency | VERIFIED - No action |
 | FLAG 6 | MEDIUM | Hardcoded targets | OPEN - Should load from data |
+
+### FLAG 3+4 Resolution (2026-01-14)
+
+**Actions taken:**
+1. Created `scripts/run_batch.py` with explicit data source classification
+2. Regenerated batch outputs using LSMS-derived data (`outputs/batch/lsms/`)
+3. All 10 seeds now use consistent configuration:
+   - N = 500 (LSMS household count)
+   - Waves = 4 (Tanzania LSMS structure)
+   - scenario = "baseline"
+   - data_source = "lsms"
+4. Added `batch_manifest.json` with aggregate metadata
+5. Updated DATA_CONTRACT.md with canonical N definitions
 
 ## Recommendations for Phase 2
 
