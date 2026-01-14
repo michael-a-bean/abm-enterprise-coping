@@ -7,6 +7,8 @@
 
 This system implements and validates an agent-based model (ABM) that simulates household enterprise entry as a coping mechanism in response to agricultural price shocks. The model is grounded in the empirical findings of "Booms, Busts, and Household Enterprise" and validated against LSMS-ISA harmonized panel data.
 
+**Research Question:** "Do LLM-based household coping decisions (given survey-like state inputs) replicate observed enterprise entry/exit patterns across contexts (countries), and how do they compare to standard statistical/ML baselines?"
+
 ---
 
 ## 2. Scope
@@ -65,19 +67,36 @@ This system implements and validates an agent-based model (ABM) that simulates h
 - Runs without real LSMS data
 - Uses synthetic household/plot data matching expected schemas
 - Purpose: Development, testing, CI validation
-- Command: `make run-toy`
+- Command: `abm run-toy`
 
-### 4.2 Full Simulation Mode
+### 4.2 Calibration Mode
+- Fits distributional parameters from LSMS data
+- Creates calibration artifacts for synthetic generation
+- Command: `abm calibrate --country tanzania --data-dir data/processed`
+
+### 4.3 Synthetic Simulation Mode
+- Generates synthetic panel from calibration artifacts
+- Runs ABM with LLM-driven decisions (o4-mini)
+- Multi-sample voting (K samples at temperature T)
+- Command: `abm run-sim-synthetic calibration.json --policy llm_o4mini`
+
+### 4.4 Direct Prediction Evaluation Mode
+- Tests LLM on real LSMS states predicting observed transitions
+- Compares to ML baselines (logistic, RF, GBM)
+- Supports cross-country generalization (train Tanzania, test Ethiopia)
+- Command: `abm eval-direct --train-country tanzania --test-country ethiopia`
+
+### 4.5 Full Simulation Mode
 - Requires ingested LSMS data
 - Runs complete ABM with specified country and scenario
 - Produces outputs for validation
-- Command: `make run-sim country=tanzania scenario=baseline`
+- Command: `abm run-sim tanzania --scenario baseline`
 
-### 4.3 LLM Policy Mode
-- Uses LLM-augmented decision policy
-- Requires API configuration (or uses stub)
-- Logs all prompts/outputs for reproducibility
-- Command: `make run-sim policy=llm`
+### 4.6 LLM Policy Mode
+- Uses LLM-augmented decision policy with multi-sample voting
+- Caching for reproducibility and cost efficiency
+- Logs all prompts/outputs for replay
+- Command: `abm run-sim tanzania --policy llm_openai`
 
 ---
 
@@ -168,25 +187,63 @@ LSMS-ISA Release (v2.0)
 - Enterprise entry triggered by negative price shock + low assets
 - Feasibility constraints: minimum assets, labor availability
 
-### 7.2 LLMPolicy (Experimental)
-- LLM generates action proposals given household state
-- Constraint validator checks feasibility
-- Commit stage records final decision
-- Full logging for reproducibility
+### 7.2 CalibratedRulePolicy
+- Data-driven thresholds from LSMS distributions
+- Adapts to country-specific patterns
+- Command: `abm run-sim tanzania --calibrate`
+
+### 7.3 MultiSampleLLMPolicy (Primary Experimental)
+- LLM generates K action proposals at temperature T
+- Each proposal validated against feasibility constraints
+- Majority vote aggregation with configurable tie-break
+- Decision caching by state hash for reproducibility and cost efficiency
+
+**LLM Decision Pipeline:**
+```
+State → Prompt → K samples at T → Constraint validation → Majority vote → Cache → Action
+```
+
+**Configuration:**
+- Model: o4-mini (OpenAI)
+- Temperature: 0.6 (default)
+- K samples: 5 (default)
+- Tie-break: Conservative (prefer NO_CHANGE)
+- Caching: Enabled (LRU with state+config hash)
 
 ---
 
 ## 8. Validation Strategy
 
-### 8.1 Estimands
+### 8.1 Two Evaluation Tracks
+
+**Track A: Direct Prediction**
+- Feed real LSMS household states to LLM
+- Predict observed transitions (ENTER/EXIT/STAY)
+- Compare to ML baselines (logistic, RF, GBM)
+- Cross-country generalization: train Tanzania → test Ethiopia
+
+**Track B: Full Simulation**
+- Generate synthetic panels from calibration artifacts
+- Run ABM with LLM decisions
+- Compare aggregate patterns to LSMS stylized facts
+- Focus on matching enterprise prevalence, entry/exit rates
+
+### 8.2 Estimands
 1. **Enterprise Entry Rate**: Proportion entering enterprise after price bust
 2. **Heterogeneity**: Differential response by asset quintile and credit access
 3. **Persistence**: Classification into stayers (>50% waves) vs copers
 
-### 8.2 Methods
-- Household fixed effects regression: `enterprise ~ price_exposure + HH_FE + time_FE`
-- Distribution comparisons: simulated vs observed enterprise rates by group
-- Portability test: Model trained/validated on Tanzania, tested on Ethiopia
+### 8.3 Direct Prediction Metrics
+- Accuracy, balanced accuracy, macro F1
+- Per-class precision/recall (ENTER, EXIT, STAY)
+- Confusion matrices
+- Subgroup analysis by assets and credit access
+
+### 8.4 Simulation Comparison Metrics
+- Enterprise prevalence by wave (simulated vs observed)
+- Entry/exit transition rates
+- Asset-stratified enterprise rates
+- FE regression coefficient comparison
 
 ---
 

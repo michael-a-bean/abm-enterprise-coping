@@ -16,7 +16,7 @@ make setup              # Install Python package with dev dependencies (pip inst
 make setup-r            # Restore R/renv environment
 
 # Quality
-make test               # Run pytest (101 tests)
+make test               # Run pytest (217 tests)
 make lint               # ruff check src/ tests/
 make format             # ruff format src/ tests/
 make type-check         # mypy src/
@@ -25,14 +25,25 @@ make type-check         # mypy src/
 pytest tests/test_model.py::test_function_name -v
 
 # Data pipeline
-make ingest-data country=tanzania    # Download LSMS or generate synthetic data
-make derive-targets country=tanzania # Build derived target tables
+abm ingest-data --country tanzania    # Download LSMS or generate synthetic data
+abm derive-targets --country tanzania # Build derived target tables
+
+# Calibration (new)
+abm calibrate --country tanzania --data-dir data/processed  # Fit distributions
 
 # Simulation
-make run-toy                         # Synthetic data, quick test
-make run-sim COUNTRY=tanzania        # With derived targets
-make run-sim COUNTRY=tanzania CALIBRATE=1  # Auto-calibrated thresholds
-make run-sim-llm-stub COUNTRY=tanzania     # LLM stub policy with logging
+abm run-toy                          # Synthetic data, quick test
+abm run-sim tanzania --scenario baseline      # With derived targets
+abm run-sim tanzania --calibrate              # Auto-calibrated thresholds
+abm run-sim tanzania --policy llm_openai      # OpenAI LLM policy
+
+# Synthetic ABM with LLM (new)
+abm run-sim-synthetic artifacts/calibration/tanzania/calibration.json \
+  --policy llm_o4mini --households 1000 --llm-k-samples 5
+
+# Direct prediction evaluation (new)
+abm eval-direct --train-country tanzania --test-country ethiopia \
+  --model all --baselines logit,rf,gbm
 
 # Validation reports (requires Quarto + R)
 make render-report                   # Toy mode report
@@ -52,12 +63,21 @@ src/
 │   ├── policies/             # Decision policies
 │   │   ├── base.py           # BasePolicy, Action enum
 │   │   ├── rule.py           # RulePolicy, CalibratedRulePolicy
-│   │   ├── llm.py            # LLMPolicy with proposal→constraints→commit pattern
+│   │   ├── llm.py            # LLMPolicy, MultiSampleLLMPolicy with voting
+│   │   ├── voting.py         # Multi-sample voting aggregation (NEW)
+│   │   ├── cache.py          # Decision caching by state hash (NEW)
 │   │   ├── providers.py      # StubProvider, ReplayProvider, ClaudeProvider, OpenAIProvider
 │   │   └── constraints.py    # Feasibility constraints for LLM proposals
+│   ├── calibration/          # Calibration subsystem (NEW)
+│   │   ├── schemas.py        # CalibrationArtifact, DistributionSpec, etc.
+│   │   └── fit.py            # Distribution fitting from LSMS
+│   ├── eval/                 # Evaluation module (NEW)
+│   │   ├── direct_prediction.py  # Transition dataset construction
+│   │   ├── baselines.py      # ML baselines (logistic, RF, GBM)
+│   │   └── metrics.py        # Classification metrics
 │   ├── data/
 │   │   ├── schemas.py        # Pydantic schemas (HouseholdState, SimulationConfig, etc.)
-│   │   └── synthetic.py      # Synthetic data generation
+│   │   └── synthetic.py      # Calibration-based synthetic panel generation
 │   └── utils/                # Logging, RNG, manifest
 └── etl/                      # Data ingestion pipeline
     ├── ingest.py             # LSMS download or synthetic fallback
@@ -67,18 +87,35 @@ src/
 
 ### Key Patterns
 
-**Policy System:** All decision logic follows `BasePolicy.decide(HouseholdState) -> Action` interface. RulePolicy uses deterministic thresholds; LLMPolicy uses LLM + constraint validation + logging for reproducibility.
+**Policy System:** All decision logic follows `BasePolicy.decide(HouseholdState) -> Action` interface. RulePolicy uses deterministic thresholds; MultiSampleLLMPolicy uses K samples + voting + caching.
 
-**LLM Decision Pipeline:** proposal→constraints→commit pattern. LLM proposes action, constraints validate feasibility, fallback to NO_CHANGE on failure. All decisions logged to JSONL with state hashes.
+**Multi-Sample LLM Pipeline (NEW):**
+1. Check decision cache by (state_hash, config_hash)
+2. If cache miss: generate K samples at temperature T
+3. Parse each response, validate against constraints
+4. Majority vote aggregation (configurable tie-break)
+5. Cache result, log decision, return action
+
+**Calibration → Synthetic Pipeline (NEW):**
+1. `abm calibrate` → fits distributions from LSMS (assets, shocks, credit)
+2. Creates `calibration.json` artifact
+3. `abm run-sim-synthetic` → generates synthetic panel from calibration
+4. Runs ABM with LLM policy on synthetic households
+
+**Two Evaluation Tracks (NEW):**
+- **Direct prediction:** LLM predicts transitions on real LSMS states vs baselines
+- **Full simulation:** Compare synthetic ABM outcomes to LSMS stylized facts
 
 **Data Flow:**
 1. `ingest-data` → raw LSMS or synthetic data
 2. `derive-targets` → canonical Parquet tables (household, plot, plot_crop)
-3. ABM loads `household_targets.parquet` with enterprise_persistence, asset_index, price_exposure
-4. Simulation outputs `household_outcomes.parquet` + `manifest.json`
-5. R/Quarto validation reports compare simulated vs observed distributions
+3. `calibrate` → CalibrationArtifact with fitted distributions
+4. ABM loads synthetic panel or `household_targets.parquet`
+5. Simulation outputs `household_outcomes.parquet` + `manifest.json`
+6. `eval-direct` → classification metrics, model comparison
+7. R/Quarto validation reports compare simulated vs observed
 
-**Reproducibility:** Centralized RNG via `utils/rng.py`, all outputs include manifest.json with git commit, seed, parameters. LLM logs enable deterministic replay.
+**Reproducibility:** Centralized RNG via `utils/rng.py`, all outputs include manifest.json with git commit, seed, parameters. LLM decision caching enables deterministic replay.
 
 ### Country Configuration
 
